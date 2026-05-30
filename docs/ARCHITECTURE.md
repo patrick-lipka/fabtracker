@@ -116,9 +116,26 @@ today and SQL filtering once the rich search lands — without locking in a rigi
 relational schema prematurely. The collection and decks will add their own
 tables here.
 
+## Search (query language)
+
+`search.rs` implements a Scryfall/Moxfield-style query language. `build_where`
+tokenizes the query (keeping quoted phrases intact), parses each `field<op>value`
+term, and returns a parameterized SQL `WHERE` clause plus its bound parameters.
+`db::search_cards` runs it: `SELECT data FROM cards WHERE <clause> ORDER BY name`.
+
+Terms combine with implicit AND. Numeric/equality filters use the indexed scalar
+columns; the array fields (types, keywords, sets) use SQLite's `json_each` /
+`json_extract` over the `data` blob (correlated subqueries). Unknown fields fall
+back to free-text matching, so the box is forgiving. Everything is parameterized
+— no string interpolation of user values into SQL.
+
+The frontend calls `search_cards` debounced; an empty query just shows the
+already-loaded full list, so there's no round-trip while idle.
+
 > **Scalability note:** the catalog is still sent to the frontend in one shot on
-> load (fine at ~4285 cards). Paging/filtering in SQL — and likely FTS5 for text
-> search — arrives with the rich-search step, reusing the indexed columns above.
+> load (fine at ~4285 cards). If the pool or collection grows large, the next
+> moves are paging results and adding an FTS5 index for text search — both reuse
+> the structure already in place.
 
 > **CSP:** `tauri.conf.json` has `csp: null` so remote images load during
 > development. Set a real CSP (or cache images locally) before shipping.

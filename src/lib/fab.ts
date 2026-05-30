@@ -2,8 +2,6 @@
 // formatting utilities. The backend already provides the printed type line
 // (`typeText`) and resolved rarity labels, so this stays thin.
 
-import type { Card } from "../types/card";
-
 /** Pitch strip color name → hex (matches the --color-pitch-* theme tokens). */
 const PITCH_HEX: Record<string, string> = {
   Red: "#d8403a",
@@ -47,19 +45,4 @@ export function statDisplay(
   if (value !== null) return String(value);
   if (text) return text;
   return "—";
-}
-
-/** The text we match a search query against. */
-export function searchText(card: Card): string {
-  return [
-    card.name,
-    card.functionalText ?? "",
-    card.typeText,
-    ...card.types,
-    ...card.traits,
-    ...card.keywords,
-    ...card.sets,
-  ]
-    .join(" ")
-    .toLowerCase();
 }

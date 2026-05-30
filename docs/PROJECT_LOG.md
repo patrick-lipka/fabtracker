@@ -7,6 +7,25 @@ The roadmap below it is the north star; the original vision follows.
 
 ## Log
 
+### 2026-05-30 — Step 4: rich search syntax ✅
+- New `search.rs`: a Scryfall/Moxfield-style query language. Tokenizes (respects
+  quoted phrases), parses `field<op>value` terms, and builds a parameterized SQL
+  `WHERE` clause + bound params. Implicit AND between terms; unknown fields fall
+  back to free text.
+- Fields: `name`, `text`/`o`, `type`/`t`, `class`/`c`, `keyword`/`kw`, `trait`,
+  `set`/`s`, `rarity`/`r`, `color`; numeric (`: = > < >= <=`) `pitch`, `cost`,
+  `power`/`pow`/`p`, `defense`/`def`/`d`, `health`/`hp`, `intellect`/`int`,
+  `arcane`. Bare words match name + type line + rules text.
+- Scalar columns back numeric/equality filters; SQLite `json_each` /
+  `json_extract` over the `data` blob back the array fields (types, keywords,
+  sets incl. set codes via printings).
+- New `search_cards(query)` command (`db::search_cards`). Frontend runs it
+  debounced (180 ms); empty query shows the in-memory full list (no round-trip).
+  Added a "?" syntax-help popover with clickable examples.
+- Verified: `cargo test --lib` (parser unit tests + end-to-end search over an
+  in-memory DB: `c:ninja`, `pow>=10`, `t:hero`, `color:blue`, `kw:crush`, quoted
+  phrase, combined terms, free text), `npm run build`, `tauri dev`.
+
 ### 2026-05-30 — Step 3: SQLite persistence ✅
 - Added `rusqlite` (bundled — no system SQLite dep) + `rusqlite_migration`.
 - New `db.rs`: opens `fabtracker.db` in the OS **app-data** dir (persistent,
@@ -74,12 +93,11 @@ Rough order; each is its own focused chunk of work.
    migrations, catalog stored as indexed columns + JSON. Collection/decks will
    add tables here. (Still sent to the frontend in one shot — paging/filtering
    in SQL comes with the search step.)
-4. **Rich search syntax.** Grow `SearchBar` into a real query language
-   (`c:ninja pitch:1 pow>=4 set:wtr`). Parse in Rust and query the DB (the
-   indexed columns are already there; add FTS5 for text). Keep the current
-   substring search as the fallback.
+4. **Rich search syntax** — ✅ done. Query language parsed in Rust, run against
+   SQLite (scalar columns + JSON functions). FTS5 for faster/fuzzier text search
+   is a possible future optimization but not needed at this scale.
 5. **Collection management.** Track owned quantities (per edition/foiling), add
-   from sets, see totals/value.
+   from sets, see totals/value. First real user-data tables in the DB.
 6. **Deck building.** Build decks against a hero, validate legality (class,
    talent, card limits, format), show the curve/breakdown.
 7. **"Missing cards" view.** Diff a deck (or a precon) against the collection.

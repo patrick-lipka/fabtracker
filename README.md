@@ -3,9 +3,9 @@
 A local-first, self-hostable collection & deck manager for **Flesh and Blood** —
 think Moxfield, but native-fast and offline-capable.
 
-> **Status:** Step 3 — browse & inspect the full real card pool, persisted in a
-> local SQLite database. See [`docs/PROJECT_LOG.md`](docs/PROJECT_LOG.md) for the
-> roadmap and where we are.
+> **Status:** Step 4 — browse, inspect, and **search** the full real card pool
+> (persisted in local SQLite). See [`docs/PROJECT_LOG.md`](docs/PROJECT_LOG.md)
+> for the roadmap and where we are.
 
 ## What it does today
 
@@ -17,7 +17,10 @@ think Moxfield, but native-fast and offline-capable.
   (a styled frame is shown while images load or if one is missing).
 - Click any card to inspect full details (stats, type line, keywords, traits,
   rules text, and every printing with its set/rarity/artist).
-- Live substring search across name, text, type, traits, keywords and sets.
+- **Query-language search** parsed and run in the Rust/SQLite backend, e.g.
+  `c:ninja pitch:1 pow>=4`, `kw:dominate cost<=2`, `set:wtr t:hero`,
+  `name:"command and conquer"`. A "?" popover documents the syntax. Bare words
+  match name + type + rules text.
 
 ### Where the data comes from
 
@@ -83,8 +86,9 @@ fabtracker/
 ├── src-tauri/                # Rust backend (Tauri)
 │   ├── src/card.rs           # Card domain model (Card + Printing)
 │   ├── src/catalog.rs        # download + parse official data (fetch_catalog)
-│   ├── src/db.rs             # SQLite persistence (migrations, store/load)
-│   └── src/lib.rs            # Tauri app + commands (get_cards, sync_cards, …)
+│   ├── src/db.rs             # SQLite persistence (migrations, store/load/search)
+│   ├── src/search.rs         # query language → parameterized SQL WHERE
+│   └── src/lib.rs            # Tauri app + commands (get_cards, search_cards, …)
 └── docs/
     ├── ARCHITECTURE.md       # decisions & rationale
     └── PROJECT_LOG.md        # roadmap + running log to resume work

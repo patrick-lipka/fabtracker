@@ -11,6 +11,7 @@
 mod card;
 mod catalog;
 mod db;
+mod search;
 
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -47,6 +48,13 @@ fn get_catalog_info(db: State<'_, Db>) -> Result<CatalogInfo, String> {
     })
 }
 
+/// Run a query-language search against the catalog (see `search.rs`).
+#[tauri::command]
+fn search_cards(query: String, db: State<'_, Db>) -> Result<Vec<Card>, String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    db::search_cards(&conn, &query)
+}
+
 /// Download the latest catalog, replace the DB copy, and return the cards.
 #[tauri::command]
 async fn sync_cards(db: State<'_, Db>) -> Result<Vec<Card>, String> {
@@ -80,6 +88,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_cards,
+            search_cards,
             sync_cards,
             get_catalog_info
         ])

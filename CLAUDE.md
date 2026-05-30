@@ -31,8 +31,13 @@ Requires Rust ≥ 1.85 (`rustup update stable`) and Node ≥ 20.
   Cards stored as indexed columns + a `data` JSON blob; schema via
   `rusqlite_migration`. `get_cards` reads the DB; `sync_cards` downloads +
   replaces it; `get_catalog_info` returns count + last-synced.
-- Backend tests: `cd src-tauri && cargo test --lib` (DB round-trip; no network).
-  The real network fetch test is `#[ignore]`d: `cargo test -- --ignored`.
+- Search: `src-tauri/src/search.rs` parses the query language into a
+  parameterized SQL WHERE; `db::search_cards` runs it. Command `search_cards`;
+  frontend calls it debounced (empty query → show in-memory full list). Numeric
+  filters use indexed columns; array fields use `json_each`/`json_extract`.
+- Backend tests: `cd src-tauri && cargo test --lib` (search parser + end-to-end
+  search + DB round-trip; no network). The real network fetch test is
+  `#[ignore]`d: `cargo test -- --ignored`.
 
 ## House style
 - Match the surrounding code's idiom and comment density.

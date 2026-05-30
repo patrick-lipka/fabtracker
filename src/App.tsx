@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Card } from "./types/card";
-import { getCards, syncCards, getCatalogInfo } from "./lib/api";
-import { searchText } from "./lib/fab";
+import { getCards, searchCards, syncCards, getCatalogInfo } from "./lib/api";
 import { CardGrid } from "./components/CardGrid";
 import { CardDetail } from "./components/CardDetail";
 import { SearchBar } from "./components/SearchBar";
@@ -16,6 +15,9 @@ export default function App() {
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [lastSynced, setLastSynced] = useState<number | null>(null);
+  // Backend search results; null means "no active query" (show everything).
+  const [results, setResults] = useState<Card[] | null>(null);
+  const [searching, setSearching] = useState(false);
 
   function refreshInfo() {
     getCatalogInfo()
@@ -59,11 +61,26 @@ export default function App() {
     }
   }
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return cards;
-    return cards.filter((c) => searchText(c).includes(q));
-  }, [cards, query]);
+  // Debounced query-language search in the Rust/SQLite backend. Empty query
+  // shows the already-loaded full list (no round-trip).
+  useEffect(() => {
+    const q = query.trim();
+    if (!q) {
+      setResults(null);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    const handle = setTimeout(() => {
+      searchCards(q)
+        .then(setResults)
+        .catch(() => setResults([]))
+        .finally(() => setSearching(false));
+    }, 180);
+    return () => clearTimeout(handle);
+  }, [query]);
+
+  const filtered = results ?? cards;
 
   const selected = useMemo(
     () => cards.find((c) => c.id === selectedId) ?? null,
@@ -89,6 +106,7 @@ export default function App() {
                 onChange={setQuery}
                 resultCount={filtered.length}
                 totalCount={cards.length}
+                searching={searching}
               />
             </div>
             {lastSynced && (

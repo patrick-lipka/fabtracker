@@ -111,6 +111,28 @@ pub fn load_cards(conn: &Connection) -> Result<Vec<Card>, String> {
     Ok(cards)
 }
 
+/// Run a query-language search (see `search.rs`) and return matching cards,
+/// alphabetically by name.
+pub fn search_cards(conn: &Connection, query: &str) -> Result<Vec<Card>, String> {
+    let (where_sql, params) = crate::search::build_where(query);
+    let sql = format!("SELECT data FROM cards WHERE {where_sql} ORDER BY name COLLATE NOCASE");
+    let mut stmt = conn.prepare(&sql).map_err(|e| format!("prepare search: {e}"))?;
+    let rows = stmt
+        .query_map(rusqlite::params_from_iter(params.iter()), |row| {
+            row.get::<_, String>(0)
+        })
+        .map_err(|e| format!("run search: {e}"))?;
+
+    let mut cards = Vec::new();
+    for row in rows {
+        let data = row.map_err(|e| format!("read row: {e}"))?;
+        let card: Card =
+            serde_json::from_str(&data).map_err(|e| format!("deserialize card: {e}"))?;
+        cards.push(card);
+    }
+    Ok(cards)
+}
+
 pub fn card_count(conn: &Connection) -> Result<i64, String> {
     conn.query_row("SELECT COUNT(*) FROM cards", [], |r| r.get(0))
         .map_err(|e| format!("count cards: {e}"))
@@ -183,6 +205,77 @@ mod tests {
                 image_url: None,
             }],
         }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn mk(
+        id: &str,
+        name: &str,
+        types: &[&str],
+        pitch: Option<i32>,
+        power: Option<i32>,
+        is_hero: bool,
+        keywords: &[&str],
+        color: Option<&str>,
+        type_text: &str,
+    ) -> Card {
+        Card {
+            id: id.into(),
+            name: name.into(),
+            color: color.map(Into::into),
+            pitch,
+            cost: None,
+            cost_text: None,
+            power,
+            power_text: None,
+            defense: None,
+            defense_text: None,
+            health: None,
+            intellect: None,
+            arcane: None,
+            is_hero,
+            types: types.iter().map(|s| s.to_string()).collect(),
+            traits: vec![],
+            keywords: keywords.iter().map(|s| s.to_string()).collect(),
+            type_text: type_text.into(),
+            functional_text: None,
+            rarity: "Rare".into(),
+            sets: vec![],
+            image_url: None,
+            printings: vec![],
+        }
+    }
+
+    #[test]
+    fn search_filters_cards() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        run_migrations(&mut conn).unwrap();
+        let cards = vec![
+            mk("a", "Snatch", &["Ninja", "Action", "Attack"], Some(1), Some(3), false, &["Go again"], Some("Red"), "Ninja Action - Attack"),
+            mk("b", "Crippling Crush", &["Guardian", "Action", "Attack"], Some(3), Some(11), false, &["Crush"], Some("Blue"), "Guardian Action - Attack"),
+            mk("c", "Dorinthea Ironsong", &["Warrior", "Hero"], None, None, true, &[], None, "Warrior Hero"),
+        ];
+        replace_cards(&mut conn, &cards).unwrap();
+
+        let names = |q: &str| {
+            let mut n: Vec<String> = search_cards(&conn, q)
+                .unwrap()
+                .into_iter()
+                .map(|c| c.name)
+                .collect();
+            n.sort();
+            n
+        };
+
+        assert_eq!(names(""), ["Crippling Crush", "Dorinthea Ironsong", "Snatch"]);
+        assert_eq!(names("c:ninja"), ["Snatch"]);
+        assert_eq!(names("pow>=10"), ["Crippling Crush"]);
+        assert_eq!(names("t:hero"), ["Dorinthea Ironsong"]);
+        assert_eq!(names("color:blue"), ["Crippling Crush"]);
+        assert_eq!(names("kw:crush"), ["Crippling Crush"]);
+        assert_eq!(names("name:\"dorinthea\""), ["Dorinthea Ironsong"]);
+        assert_eq!(names("pitch:1 c:ninja"), ["Snatch"]);
+        assert_eq!(names("guardian crush"), ["Crippling Crush"]);
     }
 
     #[test]

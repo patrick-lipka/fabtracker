@@ -9,6 +9,11 @@ export function getCards(): Promise<Card[]> {
   return invoke<Card[]>("get_cards");
 }
 
+/** Run a query-language search against the catalog (see search syntax help). */
+export function searchCards(query: string): Promise<Card[]> {
+  return invoke<Card[]>("search_cards", { query });
+}
+
 /** Download the latest catalog from the data source, cache it, and return it. */
 export function syncCards(): Promise<Card[]> {
   return invoke<Card[]>("sync_cards");
