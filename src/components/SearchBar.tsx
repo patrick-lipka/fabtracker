@@ -13,12 +13,12 @@ const EXAMPLES: [string, string][] = [
   ["pow>=6 t:attack", "Attacks with 6 or more power"],
   ["kw:dominate cost<=2", "Cheap cards with dominate"],
   ["color:blue r:majestic", "Blue majestics"],
-  ['name:"command and conquer"', "Exact name phrase"],
+  ["cn:wtr043", "A specific collector number"],
   ["set:wtr t:hero", "Heroes from Welcome to Rathe"],
 ];
 
 const FIELDS =
-  "name, text/o, type/t, class/c, keyword/kw, trait, set/s, rarity/r, color, have · " +
+  "name, text/o, type/t, class/c, keyword/kw, trait, set/s, cn/num, rarity/r, color, have · " +
   "numeric (: = > < >= <=): pitch, cost, power/pow, defense/def, health/hp, intellect/int, arcane";
 
 /**
@@ -93,9 +93,16 @@ export function SearchBar({
             ))}
           </ul>
           <p className="mt-3 border-t border-border pt-2 text-[11px] leading-relaxed text-muted">
-            Terms combine with AND. Bare words match name, type, and rules text.
+            Terms combine with AND. Bare words match name, type, rules text, and
+            collector number.
             <br />
             <span className="text-gray-300">Fields:</span> {FIELDS}
+          </p>
+          <p className="mt-2 rounded-md bg-surface-2 px-2 py-1.5 text-[11px] leading-relaxed text-gray-300">
+            💡 Tip: search a collector number directly — type{" "}
+            <span className="font-mono text-amber-200">MST131</span> or{" "}
+            <span className="font-mono text-amber-200">cn:wtr043</span>. Works in
+            Browse and Collection.
           </p>
         </div>
       )}

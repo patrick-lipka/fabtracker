@@ -7,6 +7,13 @@ The roadmap below it is the north star; the original vision follows.
 
 ## Log
 
+### 2026-05-31 — Search by collector number ✅
+- Collector numbers (e.g. `MST131`, `WTR043`) are now searchable: folded into
+  bare-word free text and exposed as a `cn:` / `num:` field, matching any of a
+  card's printing ids (`json_each` over `printings`). Works in both Browse and
+  Collection (both go through `build_where`). Added a tip + `cn:` to the syntax
+  popup. Test: `collector_number_field`.
+
 ### 2026-05-31 — Detail image follows the selected printing ✅
 - Pulled set **release dates** from `set.json` into the catalog; each `Printing`
   now carries `released`, and a card's printings are **sorted newest-first**

@@ -21,8 +21,8 @@ think Moxfield, but native-fast and offline-capable.
   search for it (e.g. click "Instant" → `t:Instant`).
 - **Query-language search** parsed and run in the Rust/SQLite backend, e.g.
   `c:ninja pitch:1 pow>=4`, `kw:dominate cost<=2`, `set:wtr t:hero`,
-  `name:"command and conquer"`. A "?" popover documents the syntax. Bare words
-  match name + type + rules text.
+  `cn:mst131`, `name:"command and conquer"`. A "?" popover documents the syntax.
+  Bare words match name + type + rules text + collector number.
 - **Collection in binders.** A Browse / Collection toggle; organize owned cards
   into binders (create/rename/delete), with owned-quantity badges. Track copies
   by **specific printing, foiling (Standard / Rainbow / Cold / Gold), and
