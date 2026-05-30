@@ -63,6 +63,17 @@ export function getCollection(binderId: number | null): Promise<CollectionCard[]
   return invoke<CollectionCard[]>("get_collection", { binderId });
 }
 
+/**
+ * Search within the collection using the query language, optionally scoped to a
+ * binder (null = all binders). Returns matching cards with owned quantities.
+ */
+export function searchCollection(
+  query: string,
+  binderId: number | null,
+): Promise<CollectionCard[]> {
+  return invoke<CollectionCard[]>("search_collection", { query, binderId });
+}
+
 /** A card's quantity in every binder (drives the detail-pane steppers). */
 export function cardBinders(cardId: string): Promise<BinderEntry[]> {
   return invoke<BinderEntry[]>("card_binders", { cardId });

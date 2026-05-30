@@ -120,6 +120,16 @@ fn get_collection(
 }
 
 #[tauri::command]
+fn search_collection(
+    query: String,
+    binder_id: Option<i64>,
+    db: State<'_, Db>,
+) -> Result<Vec<CollectionCard>, String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    collection::search_collection(&conn, &query, binder_id)
+}
+
+#[tauri::command]
 fn card_binders(card_id: String, db: State<'_, Db>) -> Result<Vec<BinderEntry>, String> {
     let conn = db.lock().map_err(|e| e.to_string())?;
     collection::card_binders(&conn, &card_id)
@@ -178,6 +188,7 @@ pub fn run() {
             rename_binder,
             delete_binder,
             get_collection,
+            search_collection,
             card_binders,
             adjust_card,
             move_card,

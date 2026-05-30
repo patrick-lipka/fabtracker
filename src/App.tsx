@@ -9,7 +9,7 @@ import {
   createBinder,
   renameBinder,
   deleteBinder,
-  getCollection,
+  searchCollection,
   cardBinders,
   adjustCard,
   moveCard,
@@ -80,13 +80,19 @@ export default function App() {
     ownedCounts().then(setOwned).catch(() => {});
   }, [collVersion]);
 
-  // Collection cards for the current binder scope (collection view only).
+  // Collection cards for the current binder scope + query (collection view).
+  // Debounced and run in the backend, so the full query language works here too.
   useEffect(() => {
     if (view !== "collection") return;
-    getCollection(selectedBinderId)
-      .then(setCollectionCards)
-      .catch(() => setCollectionCards([]));
-  }, [view, selectedBinderId, collVersion]);
+    setSearching(true);
+    const handle = setTimeout(() => {
+      searchCollection(query.trim(), selectedBinderId)
+        .then(setCollectionCards)
+        .catch(() => setCollectionCards([]))
+        .finally(() => setSearching(false));
+    }, 180);
+    return () => clearTimeout(handle);
+  }, [view, selectedBinderId, query, collVersion]);
 
   // The selected card's per-binder quantities (for the detail steppers).
   useEffect(() => {
@@ -157,27 +163,19 @@ export default function App() {
       .catch(() => {});
 
   // --- Derived view data ----------------------------------------------------
-  const collectionFiltered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return collectionCards;
-    return collectionCards.filter(
-      (cc) =>
-        cc.card.name.toLowerCase().includes(q) ||
-        cc.card.typeText.toLowerCase().includes(q),
-    );
-  }, [collectionCards, query]);
-
   // With an active query the backend already applied the owned filter; for an
   // empty query we apply it in-memory against the owned map (instant, no IPC).
   const browseCards =
     results ?? (ownedOnly ? cards.filter((c) => (owned[c.id] ?? 0) > 0) : cards);
 
   const isBrowse = view === "browse";
-  const displayCards = isBrowse ? browseCards : collectionFiltered.map((cc) => cc.card);
+  // In the collection view, `collectionCards` is already the backend-filtered
+  // result for the current query + binder.
+  const displayCards = isBrowse ? browseCards : collectionCards.map((cc) => cc.card);
   const quantities = useMemo<Record<string, number>>(() => {
     if (isBrowse) return owned;
-    return Object.fromEntries(collectionFiltered.map((cc) => [cc.card.id, cc.quantity]));
-  }, [isBrowse, owned, collectionFiltered]);
+    return Object.fromEntries(collectionCards.map((cc) => [cc.card.id, cc.quantity]));
+  }, [isBrowse, owned, collectionCards]);
   const resultCount = displayCards.length;
   const totalCount = isBrowse ? cards.length : collectionCards.length;
 
@@ -218,7 +216,7 @@ export default function App() {
                 onChange={setQuery}
                 resultCount={resultCount}
                 totalCount={totalCount}
-                searching={isBrowse && searching}
+                searching={searching}
               />
             </div>
             {isBrowse && (
@@ -284,7 +282,7 @@ export default function App() {
               </Centered>
             )}
 
-            {ready && !isBrowse && collectionCards.length === 0 ? (
+            {ready && !isBrowse && collectionCards.length === 0 && !query.trim() ? (
               <Centered>
                 <div className="max-w-sm text-center">
                   <p className="text-gray-300">This binder is empty.</p>

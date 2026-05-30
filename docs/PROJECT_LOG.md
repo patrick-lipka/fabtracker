@@ -7,6 +7,16 @@ The roadmap below it is the north star; the original vision follows.
 
 ## Log
 
+### 2026-05-31 — Search within the Collection tab / binders ✅
+- The Collection view now runs the full query language in the backend instead of
+  a client-side name filter. New `collection::search_collection(query, binderId)`
+  joins `collection_entries` to `cards`, applies the parsed `WHERE`, and
+  aggregates quantities — scoped to a binder or across all. Command
+  `search_collection`; the frontend calls it debounced on query/binder change.
+- Empty-state copy distinguishes "binder is empty" from "no matches".
+- Test: `search_within_collection_and_binders` (query filtering + binder scope,
+  including after a move).
+
 ### 2026-05-31 — `have:` / "Owned" search filter ✅
 - Search can now restrict to cards in the collection. Backend: a shared
   `search::OWNED_CLAUSE` (EXISTS over `collection_entries`), exposed both as a

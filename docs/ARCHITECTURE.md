@@ -151,10 +151,12 @@ Deleting a binder cascades to its entries (FK `ON DELETE CASCADE`, with the
 future refinement — the current model keeps the UI simple and matches "move
 cards between binders".
 
-Commands: binder CRUD, `get_collection(binderId?)`, `card_binders(cardId)` (a
-card's quantity in every binder — drives the detail steppers), `adjust_card`
-(delta; row removed at 0), `move_card`, and `owned_counts` (card id → total, for
-grid badges).
+Commands: binder CRUD, `get_collection(binderId?)`,
+`search_collection(query, binderId?)` (the catalog query language run against the
+collection, scoped to a binder or all), `card_binders(cardId)` (a card's quantity
+in every binder — drives the detail steppers), `adjust_card` (delta; row removed
+at 0), `move_card`, and `owned_counts` (card id → total, for grid badges). The
+catalog search itself takes an `owned_only` flag (the "Owned" switch / `have:`).
 
 On the frontend, a **Browse / Collection** view toggle in `App` switches the
 grid's data source; mutations bump a `collVersion` counter that the binder /

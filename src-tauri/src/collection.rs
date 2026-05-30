@@ -8,7 +8,8 @@
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::types::Value;
+use rusqlite::{params, params_from_iter, Connection, OptionalExtension};
 use serde::Serialize;
 
 use crate::card::Card;
@@ -195,6 +196,51 @@ pub fn get_collection(
     Ok(out)
 }
 
+/// Like `get_collection`, but additionally filtered by a search query (the same
+/// query language as the catalog — see `search.rs`). Powers search within the
+/// Collection view, scoped to a binder or across all of them.
+pub fn search_collection(
+    conn: &Connection,
+    query: &str,
+    binder_id: Option<i64>,
+) -> Result<Vec<CollectionCard>, String> {
+    let (where_sql, mut params) = crate::search::build_where(query);
+    // The cards table is referenced unaliased so the query fragments' bare
+    // column names (and `cards.id` in the owned clause) resolve correctly.
+    let scope = if binder_id.is_some() {
+        " AND collection_entries.binder_id = ?"
+    } else {
+        ""
+    };
+    let sql = format!(
+        "SELECT cards.data, SUM(collection_entries.quantity)
+         FROM collection_entries
+         JOIN cards ON cards.id = collection_entries.card_id
+         WHERE ({where_sql}){scope}
+         GROUP BY collection_entries.card_id
+         ORDER BY cards.name COLLATE NOCASE"
+    );
+    if let Some(id) = binder_id {
+        params.push(Value::Integer(id));
+    }
+
+    let mut stmt = conn.prepare(&sql).map_err(|e| format!("prepare search_collection: {e}"))?;
+    let rows = stmt
+        .query_map(params_from_iter(params.iter()), |r| {
+            Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?))
+        })
+        .map_err(|e| format!("query search_collection: {e}"))?;
+
+    let mut out = Vec::new();
+    for row in rows {
+        let (data, quantity) = row.map_err(|e| format!("read row: {e}"))?;
+        let card: Card =
+            serde_json::from_str(&data).map_err(|e| format!("deserialize card: {e}"))?;
+        out.push(CollectionCard { card, quantity });
+    }
+    Ok(out)
+}
+
 /// For one card, its quantity in every binder (0 where absent) — drives the
 /// per-binder steppers in the detail pane.
 pub fn card_binders(conn: &Connection, card_id: &str) -> Result<Vec<BinderEntry>, String> {
@@ -269,6 +315,16 @@ mod tests {
         }
     }
 
+    fn coll_names(conn: &Connection, q: &str, binder: Option<i64>) -> Vec<String> {
+        let mut n: Vec<String> = search_collection(conn, q, binder)
+            .unwrap()
+            .into_iter()
+            .map(|c| c.card.name)
+            .collect();
+        n.sort();
+        n
+    }
+
     fn setup() -> Connection {
         let mut conn = Connection::open_in_memory().unwrap();
         conn.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
@@ -327,6 +383,31 @@ mod tests {
         // Removing to zero drops the entry.
         adjust_card(&conn, trades, "x", -5).unwrap();
         assert_eq!(card_binders(&conn, "x").unwrap().iter().find(|e| e.binder_name == "Trades").unwrap().quantity, 0);
+    }
+
+    #[test]
+    fn search_within_collection_and_binders() {
+        let mut conn = setup();
+        let main = list_binders(&conn).unwrap()[0].id;
+        create_binder(&conn, "Trades").unwrap();
+        let trades = list_binders(&conn).unwrap()[1].id;
+
+        adjust_card(&conn, main, "x", 2).unwrap(); // Snatch
+        adjust_card(&conn, main, "y", 1).unwrap(); // Sink Below
+
+        // Empty query across all = whole collection.
+        assert_eq!(coll_names(&conn, "", None), ["Sink Below", "Snatch"]);
+        // Query filters within the collection.
+        assert_eq!(coll_names(&conn, "snatch", None), ["Snatch"]);
+        // Scoped to a binder.
+        assert_eq!(coll_names(&conn, "", Some(main)).len(), 2);
+        assert_eq!(coll_names(&conn, "", Some(trades)), [] as [String; 0]);
+
+        // Move Snatch to Trades; binder scoping follows it.
+        move_card(&mut conn, main, trades, "x", 2).unwrap();
+        assert_eq!(coll_names(&conn, "", Some(trades)), ["Snatch"]);
+        assert_eq!(coll_names(&conn, "sink", Some(trades)), [] as [String; 0]);
+        assert_eq!(coll_names(&conn, "", Some(main)), ["Sink Below"]);
     }
 
     #[test]

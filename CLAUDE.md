@@ -40,9 +40,11 @@ Requires Rust ≥ 1.85 (`rustup update stable`) and Node ≥ 20.
 - Collection: `src-tauri/src/collection.rs` — `binders` + `collection_entries`
   tables (migration v2 in `db.rs`). Cards tracked by unique id + quantity;
   multi-binder; `move_card` is atomic; deleting a binder cascades. Commands:
-  list/create/rename/delete_binder, get_collection, card_binders, adjust_card,
-  move_card, owned_counts. Frontend: Browse/Collection toggle in `App`; mutations
-  bump a `collVersion` to refresh binders/collection/owned-counts/detail.
+  list/create/rename/delete_binder, get_collection, search_collection (query
+  language scoped to a binder/all), card_binders, adjust_card, move_card,
+  owned_counts. Frontend: Browse/Collection toggle in `App`; both views search
+  via the backend (debounced); mutations bump a `collVersion` to refresh
+  binders/collection/owned-counts/detail.
   Per-printing/foiling and a `have:` filter are deferred.
 - Backend tests: `cd src-tauri && cargo test --lib` (search parser + end-to-end
   search + DB round-trip; no network). The real network fetch test is
