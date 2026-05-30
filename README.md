@@ -16,7 +16,9 @@ think Moxfield, but native-fast and offline-capable.
 - Displays the catalog in a responsive, virtualized grid with real card images
   (a styled frame is shown while images load or if one is missing).
 - Click any card to inspect full details (stats, type line, keywords, traits,
-  rules text, and every printing with its set/rarity/artist).
+  rules text, and every printing with its set/rarity/artist). Detail facets are
+  **clickable** — click a type, keyword, trait, stat, or a printing's set to
+  search for it (e.g. click "Instant" → `t:Instant`).
 - **Query-language search** parsed and run in the Rust/SQLite backend, e.g.
   `c:ninja pitch:1 pow>=4`, `kw:dominate cost<=2`, `set:wtr t:hero`,
   `name:"command and conquer"`. A "?" popover documents the syntax. Bare words

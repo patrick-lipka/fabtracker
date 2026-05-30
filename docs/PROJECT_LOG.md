@@ -7,6 +7,15 @@ The roadmap below it is the north star; the original vision follows.
 
 ## Log
 
+### 2026-05-30 — Clickable facets in the detail pane ✅
+- The card detail pane is now a set of clickable facets: types, keywords and
+  traits (chips), the stat boxes (pitch/cost/power/defense/health/intellect/
+  arcane, when numeric), and each printing's set name. Clicking one populates
+  the search box with the matching query (e.g. `t:Instant`, `kw:"Go again"`,
+  `power:6`, `set:"Welcome to Rathe"`) via an `onSearch` callback threaded from
+  `App` → `CardDetail`. Multi-word values are auto-quoted. Pure frontend; reuses
+  the existing search backend.
+
 ### 2026-05-30 — Step 4: rich search syntax ✅
 - New `search.rs`: a Scryfall/Moxfield-style query language. Tokenizes (respects
   quoted phrases), parses `field<op>value` terms, and builds a parameterized SQL

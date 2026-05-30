@@ -4,10 +4,17 @@ import { pitchColor, rarityColor, statDisplay } from "../lib/fab";
 
 interface CardDetailProps {
   card: Card | null;
+  /** Run a search query (clicking a facet populates the search box). */
+  onSearch: (query: string) => void;
+}
+
+/** Build a `field:value` search term, quoting the value if it has spaces. */
+function facet(field: string, value: string): string {
+  return /\s/.test(value) ? `${field}:"${value}"` : `${field}:${value}`;
 }
 
 /** Right-hand inspector showing the full details of the selected card. */
-export function CardDetail({ card }: CardDetailProps) {
+export function CardDetail({ card, onSearch }: CardDetailProps) {
   if (!card) {
     return (
       <div className="flex h-full items-center justify-center p-8 text-center text-sm text-muted">
@@ -30,30 +37,70 @@ export function CardDetail({ card }: CardDetailProps) {
           <p className="text-sm text-muted">{card.typeText}</p>
         </div>
 
+        {/* Stat strip — each box with a numeric value searches for it. */}
         <div className="grid grid-cols-3 gap-2">
-          <StatBox label="Pitch" value={card.pitch !== null ? String(card.pitch) : "—"} />
-          <StatBox label="Cost" value={statDisplay(card.cost, card.costText)} />
+          <StatBox
+            label="Pitch"
+            value={card.pitch !== null ? String(card.pitch) : "—"}
+            query={card.pitch !== null ? `pitch:${card.pitch}` : undefined}
+            onSearch={onSearch}
+          />
+          <StatBox
+            label="Cost"
+            value={statDisplay(card.cost, card.costText)}
+            query={card.cost !== null ? `cost:${card.cost}` : undefined}
+            onSearch={onSearch}
+          />
           {card.isHero ? (
             <>
-              <StatBox label="Life" value={statDisplay(card.health, null)} />
-              <StatBox label="Intellect" value={statDisplay(card.intellect, null)} />
+              <StatBox
+                label="Life"
+                value={statDisplay(card.health, null)}
+                query={card.health !== null ? `health:${card.health}` : undefined}
+                onSearch={onSearch}
+              />
+              <StatBox
+                label="Intellect"
+                value={statDisplay(card.intellect, null)}
+                query={card.intellect !== null ? `intellect:${card.intellect}` : undefined}
+                onSearch={onSearch}
+              />
             </>
           ) : (
             <>
-              <StatBox label="Power" value={statDisplay(card.power, card.powerText)} />
-              <StatBox label="Defense" value={statDisplay(card.defense, card.defenseText)} />
+              <StatBox
+                label="Power"
+                value={statDisplay(card.power, card.powerText)}
+                query={card.power !== null ? `power:${card.power}` : undefined}
+                onSearch={onSearch}
+              />
+              <StatBox
+                label="Defense"
+                value={statDisplay(card.defense, card.defenseText)}
+                query={card.defense !== null ? `defense:${card.defense}` : undefined}
+                onSearch={onSearch}
+              />
             </>
           )}
           {card.arcane !== null && (
-            <StatBox label="Arcane" value={String(card.arcane)} />
+            <StatBox
+              label="Arcane"
+              value={String(card.arcane)}
+              query={`arcane:${card.arcane}`}
+              onSearch={onSearch}
+            />
           )}
         </div>
 
         {card.keywords.length > 0 && (
-          <ChipRow label="Keywords" items={card.keywords} />
+          <ChipRow label="Keywords" items={card.keywords} field="kw" onSearch={onSearch} />
         )}
-        {card.traits.length > 0 && <ChipRow label="Traits" items={card.traits} />}
-        {card.types.length > 0 && <ChipRow label="Types" items={card.types} />}
+        {card.traits.length > 0 && (
+          <ChipRow label="Traits" items={card.traits} field="trait" onSearch={onSearch} />
+        )}
+        {card.types.length > 0 && (
+          <ChipRow label="Types" items={card.types} field="t" onSearch={onSearch} />
+        )}
 
         {card.functionalText && (
           <div>
@@ -70,7 +117,7 @@ export function CardDetail({ card }: CardDetailProps) {
           </p>
         )}
 
-        {/* Printings */}
+        {/* Printings — click a set to see all its cards. */}
         <div>
           <SectionLabel>
             Printings{card.printings.length > 1 ? ` (${card.printings.length})` : ""}
@@ -82,7 +129,14 @@ export function CardDetail({ card }: CardDetailProps) {
                 className="flex items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-xs"
               >
                 <div className="min-w-0">
-                  <div className="truncate text-gray-200">{p.setName}</div>
+                  <button
+                    type="button"
+                    onClick={() => onSearch(facet("set", p.setName))}
+                    title={`Search all cards in ${p.setName}`}
+                    className="block max-w-full truncate text-left text-gray-200 hover:text-accent"
+                  >
+                    {p.setName}
+                  </button>
                   <div className="text-muted">
                     {p.id}
                     {p.artists.length > 0 && ` · ${p.artists.join(", ")}`}
@@ -136,27 +190,64 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function StatBox({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-border bg-surface-2 p-2 text-center">
+function StatBox({
+  label,
+  value,
+  query,
+  onSearch,
+}: {
+  label: string;
+  value: string;
+  query?: string;
+  onSearch: (query: string) => void;
+}) {
+  const body = (
+    <>
       <div className="text-lg font-bold text-white">{value}</div>
       <div className="text-[10px] uppercase tracking-wide text-muted">{label}</div>
-    </div>
+    </>
+  );
+  const base = "rounded-lg border border-border bg-surface-2 p-2 text-center";
+  if (!query) {
+    return <div className={base}>{body}</div>;
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => onSearch(query)}
+      title={`Search ${query}`}
+      className={`${base} hover:border-accent`}
+    >
+      {body}
+    </button>
   );
 }
 
-function ChipRow({ label, items }: { label: string; items: string[] }) {
+function ChipRow({
+  label,
+  items,
+  field,
+  onSearch,
+}: {
+  label: string;
+  items: string[];
+  field: string;
+  onSearch: (query: string) => void;
+}) {
   return (
     <div>
       <SectionLabel>{label}</SectionLabel>
       <div className="flex flex-wrap gap-1.5">
         {items.map((item) => (
-          <span
+          <button
             key={item}
-            className="rounded-full border border-border bg-surface-2 px-2.5 py-0.5 text-xs text-gray-200"
+            type="button"
+            onClick={() => onSearch(facet(field, item))}
+            title={`Search ${facet(field, item)}`}
+            className="rounded-full border border-border bg-surface-2 px-2.5 py-0.5 text-xs text-gray-200 hover:border-accent hover:text-white"
           >
             {item}
-          </span>
+          </button>
         ))}
       </div>
     </div>

@@ -166,7 +166,7 @@ export default function App() {
         </main>
 
         <aside className="w-[340px] shrink-0 border-l border-border bg-surface">
-          <CardDetail card={selected} />
+          <CardDetail card={selected} onSearch={setQuery} />
         </aside>
       </div>
     </div>
