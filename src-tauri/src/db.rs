@@ -56,6 +56,32 @@ const MIGRATIONS_SLICE: &[M<'static>] = &[
          );
          CREATE INDEX idx_entries_card ON collection_entries(card_id);",
     ),
+    // v3 — track collection at printing + foiling + condition granularity.
+    // Rebuilds collection_entries, preserving existing rows by mapping each to
+    // the card's first printing, Standard foiling, Near Mint condition.
+    M::up(
+        "CREATE TABLE collection_entries_new (
+            binder_id   INTEGER NOT NULL REFERENCES binders(id) ON DELETE CASCADE,
+            card_id     TEXT NOT NULL,
+            printing_id TEXT NOT NULL,
+            set_id      TEXT NOT NULL,
+            foiling     TEXT NOT NULL DEFAULT 'Standard',
+            condition   TEXT NOT NULL DEFAULT 'NM',
+            quantity    INTEGER NOT NULL DEFAULT 1,
+            PRIMARY KEY (binder_id, card_id, printing_id, foiling, condition)
+         );
+         INSERT INTO collection_entries_new
+            (binder_id, card_id, printing_id, set_id, foiling, condition, quantity)
+         SELECT e.binder_id, e.card_id,
+                COALESCE(json_extract(c.data, '$.printings[0].id'), e.card_id),
+                COALESCE(json_extract(c.data, '$.printings[0].setId'), ''),
+                'Standard', 'NM', e.quantity
+         FROM collection_entries e
+         LEFT JOIN cards c ON c.id = e.card_id;
+         DROP TABLE collection_entries;
+         ALTER TABLE collection_entries_new RENAME TO collection_entries;
+         CREATE INDEX idx_entries_card ON collection_entries(card_id);",
+    ),
 ];
 
 const LAST_SYNCED_KEY: &str = "last_synced_ms";
@@ -313,7 +339,9 @@ mod tests {
         assert!(search_cards(&conn, "", true).unwrap().is_empty());
         // Collect Snatch (card "a") into the seeded "Main" binder (id 1).
         conn.execute(
-            "INSERT INTO collection_entries (binder_id, card_id, quantity) VALUES (1, 'a', 2)",
+            "INSERT INTO collection_entries
+                (binder_id, card_id, printing_id, set_id, foiling, condition, quantity)
+             VALUES (1, 'a', 'ap', 'TST', 'Standard', 'NM', 2)",
             [],
         )
         .unwrap();

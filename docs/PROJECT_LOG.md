@@ -7,6 +7,28 @@ The roadmap below it is the north star; the original vision follows.
 
 ## Log
 
+### 2026-05-31 — Printing, foiling & condition tracking ✅
+- Collection entries are now keyed by **(binder, card, printing, foiling,
+  condition)** + quantity. Migration v3 rebuilds `collection_entries`,
+  preserving existing rows (mapped to each card's first printing, Standard, NM).
+  Applied cleanly to the real v2 DB.
+- `collection.rs`: `adjust_entry` / `move_entry` (specific stack),
+  `move_card_all` + `remove_card_from_binder` (bulk, for the grid menu),
+  `card_entries` (a card's stacks across binders). `list_binders.card_count` is
+  now `COUNT(DISTINCT card_id)`. `get_collection` / `search_collection` still
+  aggregate per card, so the grid stays one tile + total-owned badge.
+- `catalog.rs` dedupes printings by collector id (the source lists one entry per
+  foiling). **Re-sync** to refresh the cached catalog's printing lists.
+- Foilings: Standard / Rainbow Foil / Cold Foil / Gold Cold Foil. Conditions:
+  NM / LP / MP / HP / DMG.
+- Frontend: the detail "Collection" section is now an **add-copy form**
+  (binder · printing · foiling · condition) plus a list of your actual copies
+  with +/- steppers and a per-copy "Move to…". The grid "+" quick-adds the
+  representative printing (Standard/NM); the grid menu keeps bulk move-all /
+  remove-from-binder.
+- Verified: `cargo test --lib` (10), `npm run build`, and the v3 migration on
+  the real DB (schema rebuilt, rows preserved).
+
 ### 2026-05-31 — Search within the Collection tab / binders ✅
 - The Collection view now runs the full query language in the backend instead of
   a client-side name filter. New `collection::search_collection(query, binderId)`
@@ -143,10 +165,10 @@ Rough order; each is its own focused chunk of work.
 4. **Rich search syntax** — ✅ done. Query language parsed in Rust, run against
    SQLite (scalar columns + JSON functions). FTS5 for faster/fuzzier text search
    is a possible future optimization but not needed at this scale.
-5. **Collection management** — ✅ done (v1). Binders, per-card quantities,
-   add/move/remove, owned badges, and a `have:` / "Owned" search filter.
-   Follow-ups: per-printing/foiling granularity, a `binder:` search filter,
-   set/value totals.
+5. **Collection management** — ✅ done. Binders, per-card quantities,
+   add/move/remove, owned badges, a `have:` / "Owned" search filter, and
+   per-printing / foiling / condition tracking. Follow-ups: a `binder:` search
+   filter, set/value totals (e.g. via the TCGplayer ids in the data).
 6. **Deck building.** Build decks against a hero, validate legality (class,
    talent, card limits, format), show the curve/breakdown.
 7. **"Missing cards" view.** Diff a deck (or a precon) against the collection.

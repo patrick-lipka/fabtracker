@@ -38,14 +38,15 @@ Requires Rust ≥ 1.85 (`rustup update stable`) and Node ≥ 20.
   `search_cards(query, ownedOnly)` and the `have:` field restrict to collected
   cards (shared `search::OWNED_CLAUSE`); the header "Owned" switch sets ownedOnly.
 - Collection: `src-tauri/src/collection.rs` — `binders` + `collection_entries`
-  tables (migration v2 in `db.rs`). Cards tracked by unique id + quantity;
-  multi-binder; `move_card` is atomic; deleting a binder cascades. Commands:
-  list/create/rename/delete_binder, get_collection, search_collection (query
-  language scoped to a binder/all), card_binders, adjust_card, move_card,
-  owned_counts. Frontend: Browse/Collection toggle in `App`; both views search
-  via the backend (debounced); mutations bump a `collVersion` to refresh
-  binders/collection/owned-counts/detail.
-  Per-printing/foiling and a `have:` filter are deferred.
+  tables (migrations v2/v3 in `db.rs`). Entries are stacks keyed by
+  (binder, card, printing, foiling, condition) + quantity; multi-binder; deleting
+  a binder cascades. Commands: list/create/rename/delete_binder, get_collection,
+  search_collection (query language scoped to a binder/all), card_entries,
+  adjust_entry, move_entry, move_card_all, remove_card_from_binder, owned_counts.
+  get_collection/search_collection aggregate by card_id (grid = one tile + total).
+  Frontend: Browse/Collection toggle in `App`; detail pane has the add-copy form +
+  per-copy steppers/move; mutations bump a `collVersion` to refresh
+  binders/collection/owned-counts/detail. `catalog.rs` dedupes printings by id.
 - Backend tests: `cd src-tauri && cargo test --lib` (search parser + end-to-end
   search + DB round-trip; no network). The real network fetch test is
   `#[ignore]`d: `cargo test -- --ignored`.

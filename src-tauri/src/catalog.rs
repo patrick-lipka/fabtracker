@@ -135,7 +135,7 @@ fn parse_catalog(card_json: &str, set_json: &str) -> Result<Vec<Card>, String> {
 }
 
 fn map_card(c: RawCard, set_names: &HashMap<String, String>) -> Card {
-    let printings: Vec<Printing> = c
+    let mut printings: Vec<Printing> = c
         .printings
         .into_iter()
         .map(|p| Printing {
@@ -148,6 +148,10 @@ fn map_card(c: RawCard, set_names: &HashMap<String, String>) -> Card {
             id: p.id,
         })
         .collect();
+    // The source lists one entry per foiling; we track foiling on the collection
+    // side instead, so collapse printings to one per collector id.
+    let mut seen = std::collections::HashSet::new();
+    printings.retain(|p| seen.insert(p.id.clone()));
 
     let rarity = printings.first().map(|p| p.rarity.clone()).unwrap_or_default();
     let image_url = printings.iter().find_map(|p| p.image_url.clone());

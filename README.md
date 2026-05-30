@@ -24,10 +24,12 @@ think Moxfield, but native-fast and offline-capable.
   `name:"command and conquer"`. A "?" popover documents the syntax. Bare words
   match name + type + rules text.
 - **Collection in binders.** A Browse / Collection toggle; organize owned cards
-  into binders (create/rename/delete), with owned-quantity badges. Add a card to
-  a binder from the grid ("+" on hover or right-click) or via per-binder
-  steppers in the detail pane; move cards between binders from either place.
-  "All" aggregates across binders. The same query language works **within the
+  into binders (create/rename/delete), with owned-quantity badges. Track copies
+  by **specific printing, foiling (Standard / Rainbow / Cold / Gold), and
+  condition (NM…DMG)** via the detail pane's add-copy form + per-copy steppers.
+  Quick-add a card from the grid ("+" on hover or right-click); move cards
+  between binders from the grid (bulk) or per copy in the detail pane. "All"
+  aggregates across binders. The same query language works **within the
   Collection tab** (scoped to the selected binder or all), and an **"Owned"**
   switch (or `have:` in a query) restricts Browse search to cards you own.
 

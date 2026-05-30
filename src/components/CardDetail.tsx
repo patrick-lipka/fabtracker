@@ -1,15 +1,26 @@
 import { useState } from "react";
-import type { BinderEntry, Card } from "../types/card";
+import {
+  CONDITIONS,
+  FOILINGS,
+  type Binder,
+  type Card,
+  type CardCollectionEntry,
+  type EntryKey,
+} from "../types/card";
 import { pitchColor, rarityColor, statDisplay } from "../lib/fab";
 
 interface CardDetailProps {
   card: Card | null;
   /** Run a search query (clicking a facet populates the search box). */
   onSearch: (query: string) => void;
-  /** This card's quantity in every binder (drives the collection steppers). */
-  cardBinders: BinderEntry[];
-  /** Change this card's quantity in a binder by delta. */
-  onAdjustCard: (binderId: number, delta: number) => void;
+  /** All binders (for the add-copy form and per-entry move target). */
+  binders: Binder[];
+  /** This card's collection stacks (printing/foiling/condition per binder). */
+  entries: CardCollectionEntry[];
+  /** Add `delta` copies of a specific stack to a binder. */
+  onAdjustEntry: (binderId: number, key: EntryKey, delta: number) => void;
+  /** Move all `qty` of a stack from one binder to another. */
+  onMoveEntry: (fromBinder: number, toBinder: number, key: EntryKey, qty: number) => void;
 }
 
 /** Build a `field:value` search term, quoting the value if it has spaces. */
@@ -21,8 +32,10 @@ function facet(field: string, value: string): string {
 export function CardDetail({
   card,
   onSearch,
-  cardBinders,
-  onAdjustCard,
+  binders,
+  entries,
+  onAdjustEntry,
+  onMoveEntry,
 }: CardDetailProps) {
   if (!card) {
     return (
@@ -111,42 +124,14 @@ export function CardDetail({
           <ChipRow label="Types" items={card.types} field="t" onSearch={onSearch} />
         )}
 
-        {/* Collection — quantity of this card in each binder. */}
-        {cardBinders.length > 0 && (
-          <div>
-            <SectionLabel>Collection</SectionLabel>
-            <div className="flex flex-col gap-1.5">
-              {cardBinders.map((entry) => (
-                <div
-                  key={entry.binderId}
-                  className="flex items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-1.5"
-                >
-                  <span className="min-w-0 truncate text-sm text-gray-200">
-                    {entry.binderName}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <Stepper
-                      label="−"
-                      disabled={entry.quantity === 0}
-                      onClick={() => onAdjustCard(entry.binderId, -1)}
-                    />
-                    <span
-                      className={`w-6 text-center text-sm font-bold ${
-                        entry.quantity > 0 ? "text-white" : "text-muted"
-                      }`}
-                    >
-                      {entry.quantity}
-                    </span>
-                    <Stepper
-                      label="+"
-                      onClick={() => onAdjustCard(entry.binderId, 1)}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Collection — specific printing / foiling / condition copies. */}
+        <CollectionSection
+          card={card}
+          binders={binders}
+          entries={entries}
+          onAdjustEntry={onAdjustEntry}
+          onMoveEntry={onMoveEntry}
+        />
 
         {card.functionalText && (
           <div>
@@ -225,6 +210,182 @@ function CardImage({ card }: { card: Card }) {
       <h2 className="text-xl font-bold text-white">{card.name}</h2>
       <p className="mt-2 text-xs text-muted">{card.typeText}</p>
     </div>
+  );
+}
+
+function CollectionSection({
+  card,
+  binders,
+  entries,
+  onAdjustEntry,
+  onMoveEntry,
+}: {
+  card: Card;
+  binders: Binder[];
+  entries: CardCollectionEntry[];
+  onAdjustEntry: (binderId: number, key: EntryKey, delta: number) => void;
+  onMoveEntry: (fromBinder: number, toBinder: number, key: EntryKey, qty: number) => void;
+}) {
+  // The deduped printings to choose from (fallback to the card itself).
+  const printings =
+    card.printings.length > 0
+      ? card.printings.map((p) => ({ id: p.id, setId: p.setId, label: `${p.setName} · ${p.id}` }))
+      : [{ id: card.id, setId: "", label: "Unknown printing" }];
+
+  const [binderId, setBinderId] = useState<number>(binders[0]?.id ?? 0);
+  const [printIdx, setPrintIdx] = useState(0);
+  const [foiling, setFoiling] = useState<string>(FOILINGS[0]);
+  const [condition, setCondition] = useState<string>(CONDITIONS[0]);
+
+  if (binders.length === 0) return null;
+
+  // Keep the binder selection valid if binders change.
+  const activeBinder = binders.some((b) => b.id === binderId) ? binderId : binders[0].id;
+  const printing = printings[Math.min(printIdx, printings.length - 1)];
+
+  const addKey: EntryKey = {
+    cardId: card.id,
+    printingId: printing.id,
+    setId: printing.setId,
+    foiling,
+    condition,
+  };
+
+  return (
+    <div>
+      <SectionLabel>Collection</SectionLabel>
+
+      {/* Add-copy form */}
+      <div className="rounded-lg border border-border bg-surface-2 p-2.5">
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Binder">
+            <Select value={String(activeBinder)} onChange={(v) => setBinderId(Number(v))}>
+              {binders.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Printing">
+            <Select value={String(printIdx)} onChange={(v) => setPrintIdx(Number(v))}>
+              {printings.map((p, i) => (
+                <option key={`${p.id}-${i}`} value={i}>
+                  {p.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Foiling">
+            <Select value={foiling} onChange={setFoiling}>
+              {FOILINGS.map((f) => (
+                <option key={f} value={f}>
+                  {f}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Condition">
+            <Select value={condition} onChange={setCondition}>
+              {CONDITIONS.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </div>
+        <button
+          type="button"
+          onClick={() => onAdjustEntry(activeBinder, addKey, 1)}
+          className="mt-2 w-full rounded-md bg-accent py-1.5 text-sm font-semibold text-black hover:brightness-110"
+        >
+          + Add copy
+        </button>
+      </div>
+
+      {/* Existing copies */}
+      {entries.length > 0 && (
+        <div className="mt-2 flex flex-col gap-1.5">
+          {entries.map((e, i) => {
+            const key: EntryKey = {
+              cardId: card.id,
+              printingId: e.printingId,
+              setId: e.setId,
+              foiling: e.foiling,
+              condition: e.condition,
+            };
+            return (
+              <div
+                key={`${e.binderId}-${e.printingId}-${e.foiling}-${e.condition}-${i}`}
+                className="rounded-lg border border-border bg-surface-2 px-3 py-1.5"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="min-w-0 truncate text-xs text-gray-200">
+                    <span className="text-accent">{e.binderName}</span> · {e.printingId} ·{" "}
+                    {e.foiling} · {e.condition}
+                  </span>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <Stepper label="−" onClick={() => onAdjustEntry(e.binderId, key, -1)} />
+                    <span className="w-5 text-center text-sm font-bold text-white">
+                      {e.quantity}
+                    </span>
+                    <Stepper label="+" onClick={() => onAdjustEntry(e.binderId, key, 1)} />
+                  </div>
+                </div>
+                {binders.length > 1 && (
+                  <Select
+                    value=""
+                    onChange={(v) => v && onMoveEntry(e.binderId, Number(v), key, e.quantity)}
+                    className="mt-1.5 w-full text-[11px] text-muted"
+                  >
+                    <option value="">Move to…</option>
+                    {binders
+                      .filter((b) => b.id !== e.binderId)
+                      .map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.name}
+                        </option>
+                      ))}
+                  </Select>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex flex-col gap-0.5">
+      <span className="text-[10px] uppercase tracking-wide text-muted">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function Select({
+  value,
+  onChange,
+  children,
+  className,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={`rounded-md border border-border bg-surface px-2 py-1 text-xs text-gray-200 focus:border-accent focus:outline-none ${className ?? ""}`}
+    >
+      {children}
+    </select>
   );
 }
 

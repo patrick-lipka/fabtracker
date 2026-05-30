@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Binder, BinderEntry, Card, CollectionCard, OwnedCounts } from "./types/card";
+import type {
+  Binder,
+  Card,
+  CardCollectionEntry,
+  CollectionCard,
+  EntryKey,
+  OwnedCounts,
+} from "./types/card";
 import {
   getCards,
   searchCards,
@@ -10,9 +17,11 @@ import {
   renameBinder,
   deleteBinder,
   searchCollection,
-  cardBinders,
-  adjustCard,
-  moveCard,
+  cardEntries,
+  adjustEntry,
+  moveEntry,
+  moveCardAll,
+  removeCardFromBinder,
   ownedCounts,
 } from "./lib/api";
 import { CardGrid } from "./components/CardGrid";
@@ -43,7 +52,7 @@ export default function App() {
   const [selectedBinderId, setSelectedBinderId] = useState<number | null>(null);
   const [collectionCards, setCollectionCards] = useState<CollectionCard[]>([]);
   const [owned, setOwned] = useState<OwnedCounts>({});
-  const [selectedCardBinders, setSelectedCardBinders] = useState<BinderEntry[]>([]);
+  const [selectedCardEntries, setSelectedCardEntries] = useState<CardCollectionEntry[]>([]);
   const [binderMenu, setBinderMenu] = useState<BinderMenuState | null>(null);
   // Bumped after any collection mutation to trigger reloads.
   const [collVersion, setCollVersion] = useState(0);
@@ -94,15 +103,15 @@ export default function App() {
     return () => clearTimeout(handle);
   }, [view, selectedBinderId, query, collVersion]);
 
-  // The selected card's per-binder quantities (for the detail steppers).
+  // The selected card's collection stacks (for the detail copy list).
   useEffect(() => {
     if (!selectedId) {
-      setSelectedCardBinders([]);
+      setSelectedCardEntries([]);
       return;
     }
-    cardBinders(selectedId)
-      .then(setSelectedCardBinders)
-      .catch(() => setSelectedCardBinders([]));
+    cardEntries(selectedId)
+      .then(setSelectedCardEntries)
+      .catch(() => setSelectedCardEntries([]));
   }, [selectedId, collVersion]);
 
   // Debounced backend search (browse view only; collection filters client-side).
@@ -145,10 +154,24 @@ export default function App() {
   }
 
   // --- Collection mutations -------------------------------------------------
-  const handleAdjust = (binderId: number, cardId: string, delta: number) =>
-    adjustCard(binderId, cardId, delta).then(bumpColl).catch(() => {});
-  const handleMove = (from: number, to: number, cardId: string, qty: number) =>
-    moveCard(from, to, cardId, qty).then(bumpColl).catch(() => {});
+  const handleAdjustEntry = (binderId: number, key: EntryKey, delta: number) =>
+    adjustEntry(binderId, key, delta).then(bumpColl).catch(() => {});
+  const handleMoveEntry = (from: number, to: number, key: EntryKey, qty: number) =>
+    moveEntry(from, to, key, qty).then(bumpColl).catch(() => {});
+
+  /** A card's representative stack (default printing, Standard, NM) for quick add. */
+  const defaultKey = (card: Card): EntryKey => ({
+    cardId: card.id,
+    printingId: card.printings[0]?.id ?? card.id,
+    setId: card.printings[0]?.setId ?? "",
+    foiling: "Standard",
+    condition: "NM",
+  });
+
+  const handleMoveCardAll = (from: number, to: number, cardId: string) =>
+    moveCardAll(from, to, cardId).then(bumpColl).catch(() => {});
+  const handleRemoveFromBinder = (binderId: number, cardId: string) =>
+    removeCardFromBinder(binderId, cardId).then(bumpColl).catch(() => {});
   const handleCreateBinder = (name: string) =>
     createBinder(name).then(setBinders).then(bumpColl).catch(() => {});
   const handleRenameBinder = (id: number, name: string) =>
@@ -311,10 +334,10 @@ export default function App() {
           <CardDetail
             card={selected}
             onSearch={setQuery}
-            cardBinders={selectedCardBinders}
-            onAdjustCard={(binderId, delta) =>
-              selected && handleAdjust(binderId, selected.id, delta)
-            }
+            binders={binders}
+            entries={selectedCardEntries}
+            onAdjustEntry={handleAdjustEntry}
+            onMoveEntry={handleMoveEntry}
           />
         </aside>
       </div>
@@ -324,18 +347,18 @@ export default function App() {
           state={binderMenu}
           binders={binders}
           onAdd={(binderId) => {
-            handleAdjust(binderId, binderMenu.card.id, 1);
+            handleAdjustEntry(binderId, defaultKey(binderMenu.card), 1);
             setBinderMenu(null);
           }}
           onMove={(toId) => {
             if (binderMenu.currentBinderId !== null) {
-              handleMove(binderMenu.currentBinderId, toId, binderMenu.card.id, binderMenu.currentQty);
+              handleMoveCardAll(binderMenu.currentBinderId, toId, binderMenu.card.id);
             }
             setBinderMenu(null);
           }}
           onRemove={() => {
             if (binderMenu.currentBinderId !== null) {
-              handleAdjust(binderMenu.currentBinderId, binderMenu.card.id, -binderMenu.currentQty);
+              handleRemoveFromBinder(binderMenu.currentBinderId, binderMenu.card.id);
             }
             setBinderMenu(null);
           }}

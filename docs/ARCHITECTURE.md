@@ -143,20 +143,27 @@ already-loaded full list, so there's no round-trip while idle.
 `binders` and `collection_entries` (PK `binder_id` + `card_id`, with a
 `quantity`). A default "Main" binder is seeded.
 
-Model (v1): a card is tracked by its **unique card id** with a quantity, and may
-live in several binders. "All collection" aggregates quantities across binders;
-**moving** shifts quantity from one binder to another (`move_card`, atomic).
-Deleting a binder cascades to its entries (FK `ON DELETE CASCADE`, with the
-`foreign_keys` pragma on). Per-printing / foiling granularity is a deliberate
-future refinement — the current model keeps the UI simple and matches "move
-cards between binders".
+Model: an entry is a **stack of identical physical copies** — keyed by
+`(binder, card, printing, foiling, condition)` with a quantity. A card may have
+several stacks across binders. "All collection" and per-card displays aggregate
+by `card_id` (so the grid stays one tile + total-owned badge); **moving** shifts
+copies between binders. Deleting a binder cascades to its entries (FK
+`ON DELETE CASCADE`, with the `foreign_keys` pragma on). Foilings come from the
+dataset (Standard / Rainbow Foil / Cold Foil / Gold Cold Foil); conditions are
+the usual NM / LP / MP / HP / DMG.
 
 Commands: binder CRUD, `get_collection(binderId?)`,
 `search_collection(query, binderId?)` (the catalog query language run against the
-collection, scoped to a binder or all), `card_binders(cardId)` (a card's quantity
-in every binder — drives the detail steppers), `adjust_card` (delta; row removed
-at 0), `move_card`, and `owned_counts` (card id → total, for grid badges). The
-catalog search itself takes an `owned_only` flag (the "Owned" switch / `have:`).
+collection, scoped to a binder or all), `card_entries(cardId)` (a card's stacks
+across binders — drives the detail copy list), `adjust_entry` (delta on a
+specific stack; row removed at 0), `move_entry` (a specific stack),
+`move_card_all` + `remove_card_from_binder` (bulk, for the grid menu), and
+`owned_counts` (card id → total, for grid badges). The catalog search itself
+takes an `owned_only` flag (the "Owned" switch / `have:`).
+
+Catalog printings are deduped by collector id in `catalog.rs` (the source lists
+one printing entry per foiling); foiling is tracked on the collection side
+instead.
 
 On the frontend, a **Browse / Collection** view toggle in `App` switches the
 grid's data source; mutations bump a `collVersion` counter that the binder /

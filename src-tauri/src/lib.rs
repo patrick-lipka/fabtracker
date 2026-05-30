@@ -20,7 +20,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use std::collections::HashMap;
 
 use card::Card;
-use collection::{Binder, BinderEntry, CollectionCard};
+use collection::{Binder, CardCollectionEntry, CollectionCard, EntryKey};
 use rusqlite::Connection;
 use serde::Serialize;
 use tauri::{Manager, State};
@@ -130,32 +130,76 @@ fn search_collection(
 }
 
 #[tauri::command]
-fn card_binders(card_id: String, db: State<'_, Db>) -> Result<Vec<BinderEntry>, String> {
+fn card_entries(card_id: String, db: State<'_, Db>) -> Result<Vec<CardCollectionEntry>, String> {
     let conn = db.lock().map_err(|e| e.to_string())?;
-    collection::card_binders(&conn, &card_id)
+    collection::card_entries(&conn, &card_id)
+}
+
+/// A specific (printing, foiling, condition) stack of a card, from the frontend.
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct EntryKeyArg {
+    card_id: String,
+    printing_id: String,
+    set_id: String,
+    foiling: String,
+    condition: String,
+}
+
+impl EntryKeyArg {
+    fn key(&self) -> EntryKey<'_> {
+        EntryKey {
+            card_id: &self.card_id,
+            printing_id: &self.printing_id,
+            set_id: &self.set_id,
+            foiling: &self.foiling,
+            condition: &self.condition,
+        }
+    }
 }
 
 #[tauri::command]
-fn adjust_card(
+fn adjust_entry(
     binder_id: i64,
-    card_id: String,
+    entry: EntryKeyArg,
     delta: i64,
     db: State<'_, Db>,
 ) -> Result<(), String> {
     let conn = db.lock().map_err(|e| e.to_string())?;
-    collection::adjust_card(&conn, binder_id, &card_id, delta)
+    collection::adjust_entry(&conn, binder_id, &entry.key(), delta)
 }
 
 #[tauri::command]
-fn move_card(
+fn move_entry(
     from_binder: i64,
     to_binder: i64,
-    card_id: String,
+    entry: EntryKeyArg,
     quantity: i64,
     db: State<'_, Db>,
 ) -> Result<(), String> {
     let mut conn = db.lock().map_err(|e| e.to_string())?;
-    collection::move_card(&mut conn, from_binder, to_binder, &card_id, quantity)
+    collection::move_entry(&mut conn, from_binder, to_binder, &entry.key(), quantity)
+}
+
+#[tauri::command]
+fn move_card_all(
+    from_binder: i64,
+    to_binder: i64,
+    card_id: String,
+    db: State<'_, Db>,
+) -> Result<(), String> {
+    let mut conn = db.lock().map_err(|e| e.to_string())?;
+    collection::move_card_all(&mut conn, from_binder, to_binder, &card_id)
+}
+
+#[tauri::command]
+fn remove_card_from_binder(
+    binder_id: i64,
+    card_id: String,
+    db: State<'_, Db>,
+) -> Result<(), String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    collection::remove_card_from_binder(&conn, binder_id, &card_id)
 }
 
 #[tauri::command]
@@ -189,9 +233,11 @@ pub fn run() {
             delete_binder,
             get_collection,
             search_collection,
-            card_binders,
-            adjust_card,
-            move_card,
+            card_entries,
+            adjust_entry,
+            move_entry,
+            move_card_all,
+            remove_card_from_binder,
             owned_counts,
         ])
         .run(tauri::generate_context!())

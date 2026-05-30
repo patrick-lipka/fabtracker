@@ -26,12 +26,17 @@ pub struct Binder {
     pub total_quantity: i64,
 }
 
-/// How many copies of a given card are in a particular binder (0 ⇒ none).
+/// One stack of identical physical copies of a card: a specific printing,
+/// foiling, and condition, in a particular binder.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct BinderEntry {
+pub struct CardCollectionEntry {
     pub binder_id: i64,
     pub binder_name: String,
+    pub printing_id: String,
+    pub set_id: String,
+    pub foiling: String,
+    pub condition: String,
     pub quantity: i64,
 }
 
@@ -51,7 +56,7 @@ pub fn list_binders(conn: &Connection) -> Result<Vec<Binder>, String> {
     let mut stmt = conn
         .prepare(
             "SELECT b.id, b.name, b.position,
-                    COUNT(e.card_id),
+                    COUNT(DISTINCT e.card_id),
                     COALESCE(SUM(e.quantity), 0)
              FROM binders b
              LEFT JOIN collection_entries e ON e.binder_id = b.id
@@ -105,18 +110,28 @@ pub fn delete_binder(conn: &Connection, id: i64) -> Result<(), String> {
 // Entries.
 // --------------------------------------------------------------------------
 
-/// Change the quantity of `card_id` in `binder_id` by `delta` (may be negative).
-/// The row is created as needed and removed when the quantity reaches 0.
-pub fn adjust_card(
+/// Identifies a specific stack: a printing, foiling, and condition of a card.
+pub struct EntryKey<'a> {
+    pub card_id: &'a str,
+    pub printing_id: &'a str,
+    pub set_id: &'a str,
+    pub foiling: &'a str,
+    pub condition: &'a str,
+}
+
+/// Change the quantity of a specific (printing, foiling, condition) of a card in
+/// a binder by `delta`. The row is created as needed and removed when it hits 0.
+pub fn adjust_entry(
     conn: &Connection,
     binder_id: i64,
-    card_id: &str,
+    key: &EntryKey,
     delta: i64,
 ) -> Result<(), String> {
     let current: i64 = conn
         .query_row(
-            "SELECT quantity FROM collection_entries WHERE binder_id = ?1 AND card_id = ?2",
-            params![binder_id, card_id],
+            "SELECT quantity FROM collection_entries
+             WHERE binder_id=?1 AND card_id=?2 AND printing_id=?3 AND foiling=?4 AND condition=?5",
+            params![binder_id, key.card_id, key.printing_id, key.foiling, key.condition],
             |r| r.get(0),
         )
         .optional()
@@ -126,36 +141,92 @@ pub fn adjust_card(
     let next = current + delta;
     if next <= 0 {
         conn.execute(
-            "DELETE FROM collection_entries WHERE binder_id = ?1 AND card_id = ?2",
-            params![binder_id, card_id],
+            "DELETE FROM collection_entries
+             WHERE binder_id=?1 AND card_id=?2 AND printing_id=?3 AND foiling=?4 AND condition=?5",
+            params![binder_id, key.card_id, key.printing_id, key.foiling, key.condition],
         )
         .map_err(|e| format!("remove entry: {e}"))?;
     } else {
         conn.execute(
-            "INSERT INTO collection_entries (binder_id, card_id, quantity) VALUES (?1, ?2, ?3)
-             ON CONFLICT(binder_id, card_id) DO UPDATE SET quantity = ?3",
-            params![binder_id, card_id, next],
+            "INSERT INTO collection_entries
+                (binder_id, card_id, printing_id, set_id, foiling, condition, quantity)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+             ON CONFLICT(binder_id, card_id, printing_id, foiling, condition)
+                DO UPDATE SET quantity = ?7",
+            params![
+                binder_id,
+                key.card_id,
+                key.printing_id,
+                key.set_id,
+                key.foiling,
+                key.condition,
+                next
+            ],
         )
         .map_err(|e| format!("upsert entry: {e}"))?;
     }
     Ok(())
 }
 
-/// Move `quantity` copies of a card from one binder to another (atomically).
-pub fn move_card(
+/// Move `quantity` copies of a specific stack from one binder to another.
+pub fn move_entry(
     conn: &mut Connection,
     from_binder: i64,
     to_binder: i64,
-    card_id: &str,
+    key: &EntryKey,
     quantity: i64,
 ) -> Result<(), String> {
     if from_binder == to_binder || quantity <= 0 {
         return Ok(());
     }
     let tx = conn.transaction().map_err(|e| format!("begin tx: {e}"))?;
-    adjust_card(&tx, from_binder, card_id, -quantity)?;
-    adjust_card(&tx, to_binder, card_id, quantity)?;
+    adjust_entry(&tx, from_binder, key, -quantity)?;
+    adjust_entry(&tx, to_binder, key, quantity)?;
     tx.commit().map_err(|e| format!("commit move: {e}"))
+}
+
+/// Move *all* stacks of a card from one binder to another, merging quantities
+/// into any matching stacks already in the target.
+pub fn move_card_all(
+    conn: &mut Connection,
+    from_binder: i64,
+    to_binder: i64,
+    card_id: &str,
+) -> Result<(), String> {
+    if from_binder == to_binder {
+        return Ok(());
+    }
+    let tx = conn.transaction().map_err(|e| format!("begin tx: {e}"))?;
+    tx.execute(
+        "INSERT INTO collection_entries
+            (binder_id, card_id, printing_id, set_id, foiling, condition, quantity)
+         SELECT ?1, card_id, printing_id, set_id, foiling, condition, quantity
+         FROM collection_entries WHERE binder_id=?2 AND card_id=?3
+         ON CONFLICT(binder_id, card_id, printing_id, foiling, condition)
+            DO UPDATE SET quantity = quantity + excluded.quantity",
+        params![to_binder, from_binder, card_id],
+    )
+    .map_err(|e| format!("merge into target: {e}"))?;
+    tx.execute(
+        "DELETE FROM collection_entries WHERE binder_id=?1 AND card_id=?2",
+        params![from_binder, card_id],
+    )
+    .map_err(|e| format!("clear source: {e}"))?;
+    tx.commit().map_err(|e| format!("commit move-all: {e}"))
+}
+
+/// Remove every stack of a card from a binder.
+pub fn remove_card_from_binder(
+    conn: &Connection,
+    binder_id: i64,
+    card_id: &str,
+) -> Result<(), String> {
+    conn.execute(
+        "DELETE FROM collection_entries WHERE binder_id=?1 AND card_id=?2",
+        params![binder_id, card_id],
+    )
+    .map_err(|e| format!("remove card from binder: {e}"))?;
+    Ok(())
 }
 
 // --------------------------------------------------------------------------
@@ -241,26 +312,31 @@ pub fn search_collection(
     Ok(out)
 }
 
-/// For one card, its quantity in every binder (0 where absent) — drives the
-/// per-binder steppers in the detail pane.
-pub fn card_binders(conn: &Connection, card_id: &str) -> Result<Vec<BinderEntry>, String> {
+/// All collection stacks of a card across every binder — drives the detail
+/// pane's copy list.
+pub fn card_entries(conn: &Connection, card_id: &str) -> Result<Vec<CardCollectionEntry>, String> {
     let mut stmt = conn
         .prepare(
-            "SELECT b.id, b.name, COALESCE(e.quantity, 0)
-             FROM binders b
-             LEFT JOIN collection_entries e ON e.binder_id = b.id AND e.card_id = ?1
-             ORDER BY b.position, b.id",
+            "SELECT e.binder_id, b.name, e.printing_id, e.set_id, e.foiling, e.condition, e.quantity
+             FROM collection_entries e
+             JOIN binders b ON b.id = e.binder_id
+             WHERE e.card_id = ?1
+             ORDER BY b.position, b.id, e.set_id, e.printing_id, e.foiling, e.condition",
         )
-        .map_err(|e| format!("prepare card_binders: {e}"))?;
+        .map_err(|e| format!("prepare card_entries: {e}"))?;
     let rows = stmt
         .query_map(params![card_id], |r| {
-            Ok(BinderEntry {
+            Ok(CardCollectionEntry {
                 binder_id: r.get(0)?,
                 binder_name: r.get(1)?,
-                quantity: r.get(2)?,
+                printing_id: r.get(2)?,
+                set_id: r.get(3)?,
+                foiling: r.get(4)?,
+                condition: r.get(5)?,
+                quantity: r.get(6)?,
             })
         })
-        .map_err(|e| format!("query card_binders: {e}"))?;
+        .map_err(|e| format!("query card_entries: {e}"))?;
     rows.collect::<Result<_, _>>()
         .map_err(|e| format!("read entry: {e}"))
 }
@@ -315,6 +391,16 @@ mod tests {
         }
     }
 
+    fn ek<'a>(card: &'a str, printing: &'a str, foil: &'a str, cond: &'a str) -> EntryKey<'a> {
+        EntryKey {
+            card_id: card,
+            printing_id: printing,
+            set_id: "TST",
+            foiling: foil,
+            condition: cond,
+        }
+    }
+
     fn coll_names(conn: &Connection, q: &str, binder: Option<i64>) -> Vec<String> {
         let mut n: Vec<String> = search_collection(conn, q, binder)
             .unwrap()
@@ -346,43 +432,49 @@ mod tests {
     fn add_move_and_aggregate() {
         let mut conn = setup();
         create_binder(&conn, "Trades").unwrap();
-        let binders = list_binders(&conn).unwrap();
-        let main = binders[0].id;
-        let trades = binders[1].id;
+        let bs = list_binders(&conn).unwrap();
+        let main = bs[0].id;
+        let trades = bs[1].id;
 
-        adjust_card(&conn, main, "x", 3).unwrap();
-        adjust_card(&conn, main, "y", 1).unwrap();
+        // x: 3 Standard + 1 Rainbow Foil; y: 1 Standard — all in Main.
+        adjust_entry(&conn, main, &ek("x", "xp", "Standard", "NM"), 3).unwrap();
+        adjust_entry(&conn, main, &ek("x", "xp", "Rainbow Foil", "NM"), 1).unwrap();
+        adjust_entry(&conn, main, &ek("y", "yp", "Standard", "NM"), 1).unwrap();
 
-        // Main now has 2 distinct cards, 4 total.
-        let binders = list_binders(&conn).unwrap();
-        assert_eq!(binders[0].card_count, 2);
-        assert_eq!(binders[0].total_quantity, 4);
+        // Distinct cards = 2 (x, y); total quantity = 5.
+        let bs = list_binders(&conn).unwrap();
+        assert_eq!(bs[0].card_count, 2);
+        assert_eq!(bs[0].total_quantity, 5);
 
-        // Move 1 of x to Trades.
-        move_card(&mut conn, main, trades, "x", 1).unwrap();
-        let entries = card_binders(&conn, "x").unwrap();
-        let qty = |name: &str| entries.iter().find(|e| e.binder_name == name).unwrap().quantity;
-        assert_eq!(qty("Main"), 2);
-        assert_eq!(qty("Trades"), 1);
-
-        // "All collection" aggregates x across both binders.
+        // get_collection aggregates x's two foilings into one tile (qty 4).
         let all = get_collection(&conn, None).unwrap();
-        let x = all.iter().find(|c| c.card.id == "x").unwrap();
-        assert_eq!(x.quantity, 3);
+        assert_eq!(all.iter().find(|c| c.card.id == "x").unwrap().quantity, 4);
+        // card_entries lists x's two distinct stacks.
+        assert_eq!(card_entries(&conn, "x").unwrap().len(), 2);
 
-        // Scoped to Trades only.
-        let scoped = get_collection(&conn, Some(trades)).unwrap();
-        assert_eq!(scoped.len(), 1);
-        assert_eq!(scoped[0].quantity, 1);
+        // Move all of x (both stacks) to Trades.
+        move_card_all(&mut conn, main, trades, "x").unwrap();
+        let entries = card_entries(&conn, "x").unwrap();
+        assert_eq!(entries.len(), 2);
+        assert!(entries.iter().all(|e| e.binder_name == "Trades"));
+        assert_eq!(card_entries(&conn, "y").unwrap()[0].binder_name, "Main");
 
-        // Owned counts across all binders.
+        // owned_counts aggregates across binders + foilings.
         let counts = owned_counts(&conn).unwrap();
-        assert_eq!(counts.get("x"), Some(&3));
+        assert_eq!(counts.get("x"), Some(&4));
         assert_eq!(counts.get("y"), Some(&1));
 
-        // Removing to zero drops the entry.
-        adjust_card(&conn, trades, "x", -5).unwrap();
-        assert_eq!(card_binders(&conn, "x").unwrap().iter().find(|e| e.binder_name == "Trades").unwrap().quantity, 0);
+        // Move one Standard copy of x back to Main.
+        move_entry(&mut conn, trades, main, &ek("x", "xp", "Standard", "NM"), 1).unwrap();
+        let main_scope = get_collection(&conn, Some(main)).unwrap();
+        assert_eq!(main_scope.iter().find(|c| c.card.id == "x").unwrap().quantity, 1);
+
+        // Remove all remaining x from Trades.
+        remove_card_from_binder(&conn, trades, "x").unwrap();
+        assert!(card_entries(&conn, "x")
+            .unwrap()
+            .iter()
+            .all(|e| e.binder_name == "Main"));
     }
 
     #[test]
@@ -392,8 +484,8 @@ mod tests {
         create_binder(&conn, "Trades").unwrap();
         let trades = list_binders(&conn).unwrap()[1].id;
 
-        adjust_card(&conn, main, "x", 2).unwrap(); // Snatch
-        adjust_card(&conn, main, "y", 1).unwrap(); // Sink Below
+        adjust_entry(&conn, main, &ek("x", "xp", "Standard", "NM"), 2).unwrap(); // Snatch
+        adjust_entry(&conn, main, &ek("y", "yp", "Standard", "NM"), 1).unwrap(); // Sink Below
 
         // Empty query across all = whole collection.
         assert_eq!(coll_names(&conn, "", None), ["Sink Below", "Snatch"]);
@@ -404,7 +496,7 @@ mod tests {
         assert_eq!(coll_names(&conn, "", Some(trades)), [] as [String; 0]);
 
         // Move Snatch to Trades; binder scoping follows it.
-        move_card(&mut conn, main, trades, "x", 2).unwrap();
+        move_card_all(&mut conn, main, trades, "x").unwrap();
         assert_eq!(coll_names(&conn, "", Some(trades)), ["Snatch"]);
         assert_eq!(coll_names(&conn, "sink", Some(trades)), [] as [String; 0]);
         assert_eq!(coll_names(&conn, "", Some(main)), ["Sink Below"]);
@@ -415,7 +507,7 @@ mod tests {
         let conn = setup();
         create_binder(&conn, "Trades").unwrap();
         let trades = list_binders(&conn).unwrap()[1].id;
-        adjust_card(&conn, trades, "x", 2).unwrap();
+        adjust_entry(&conn, trades, &ek("x", "xp", "Standard", "NM"), 2).unwrap();
         delete_binder(&conn, trades).unwrap();
         assert_eq!(list_binders(&conn).unwrap().len(), 1);
         assert!(owned_counts(&conn).unwrap().is_empty());

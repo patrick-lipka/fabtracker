@@ -57,12 +57,36 @@ export interface Binder {
   totalQuantity: number;
 }
 
-/** A card's quantity in one binder (0 ⇒ not in that binder). */
-export interface BinderEntry {
+/** A specific (printing, foiling, condition) stack of a card in a binder. */
+export interface CardCollectionEntry {
   binderId: number;
   binderName: string;
+  printingId: string;
+  setId: string;
+  foiling: string;
+  condition: string;
   quantity: number;
 }
+
+/** Identifies a stack when adding/adjusting/moving. */
+export interface EntryKey {
+  cardId: string;
+  printingId: string;
+  setId: string;
+  foiling: string;
+  condition: string;
+}
+
+/** Foiling options (from the dataset's foiling list). */
+export const FOILINGS = [
+  "Standard",
+  "Rainbow Foil",
+  "Cold Foil",
+  "Gold Cold Foil",
+] as const;
+
+/** Card condition grades. */
+export const CONDITIONS = ["NM", "LP", "MP", "HP", "DMG"] as const;
 
 /** A collected card together with how many are owned (within scope). */
 export interface CollectionCard {

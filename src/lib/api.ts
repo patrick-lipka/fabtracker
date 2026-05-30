@@ -4,9 +4,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   Binder,
-  BinderEntry,
   Card,
+  CardCollectionEntry,
   CollectionCard,
+  EntryKey,
   OwnedCounts,
 } from "../types/card";
 
@@ -74,28 +75,45 @@ export function searchCollection(
   return invoke<CollectionCard[]>("search_collection", { query, binderId });
 }
 
-/** A card's quantity in every binder (drives the detail-pane steppers). */
-export function cardBinders(cardId: string): Promise<BinderEntry[]> {
-  return invoke<BinderEntry[]>("card_binders", { cardId });
+/** Every collection stack of a card across binders (drives the detail list). */
+export function cardEntries(cardId: string): Promise<CardCollectionEntry[]> {
+  return invoke<CardCollectionEntry[]>("card_entries", { cardId });
 }
 
-/** Change a card's quantity in a binder by `delta` (row removed at 0). */
-export function adjustCard(
+/** Change a specific stack's quantity in a binder by `delta` (removed at 0). */
+export function adjustEntry(
   binderId: number,
-  cardId: string,
+  entry: EntryKey,
   delta: number,
 ): Promise<void> {
-  return invoke("adjust_card", { binderId, cardId, delta });
+  return invoke("adjust_entry", { binderId, entry, delta });
 }
 
-/** Move `quantity` copies of a card from one binder to another. */
-export function moveCard(
+/** Move `quantity` copies of a specific stack between binders. */
+export function moveEntry(
+  fromBinder: number,
+  toBinder: number,
+  entry: EntryKey,
+  quantity: number,
+): Promise<void> {
+  return invoke("move_entry", { fromBinder, toBinder, entry, quantity });
+}
+
+/** Move all stacks of a card from one binder to another (merging). */
+export function moveCardAll(
   fromBinder: number,
   toBinder: number,
   cardId: string,
-  quantity: number,
 ): Promise<void> {
-  return invoke("move_card", { fromBinder, toBinder, cardId, quantity });
+  return invoke("move_card_all", { fromBinder, toBinder, cardId });
+}
+
+/** Remove every stack of a card from a binder. */
+export function removeCardFromBinder(
+  binderId: number,
+  cardId: string,
+): Promise<void> {
+  return invoke("remove_card_from_binder", { binderId, cardId });
 }
 
 /** card id → total owned quantity across all binders. */
