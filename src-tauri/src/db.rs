@@ -261,6 +261,7 @@ mod tests {
                 artists: vec!["Gabriel Cassata".into()],
                 flavor_text: None,
                 image_url: None,
+                released: None,
             }],
         }
     }

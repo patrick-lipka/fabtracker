@@ -193,8 +193,17 @@ export default function App() {
 
   const isBrowse = view === "browse";
   // In the collection view, `collectionCards` is already the backend-filtered
-  // result for the current query + binder.
-  const displayCards = isBrowse ? browseCards : collectionCards.map((cc) => cc.card);
+  // result for the current query + binder. Show the owned printing's art
+  // (newest owned, since printings are ordered newest-first).
+  const displayCards = isBrowse
+    ? browseCards
+    : collectionCards.map((cc) => {
+        const owned = new Set(cc.ownedPrintingIds);
+        const ownedPrinting = cc.card.printings.find((p) => owned.has(p.id));
+        return ownedPrinting?.imageUrl
+          ? { ...cc.card, imageUrl: ownedPrinting.imageUrl }
+          : cc.card;
+      });
   const quantities = useMemo<Record<string, number>>(() => {
     if (isBrowse) return owned;
     return Object.fromEntries(collectionCards.map((cc) => [cc.card.id, cc.quantity]));
@@ -333,6 +342,7 @@ export default function App() {
         <aside className="w-[340px] shrink-0 border-l border-border bg-surface">
           <CardDetail
             card={selected}
+            view={view}
             onSearch={setQuery}
             binders={binders}
             entries={selectedCardEntries}

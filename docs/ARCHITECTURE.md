@@ -163,7 +163,10 @@ takes an `owned_only` flag (the "Owned" switch / `have:`).
 
 Catalog printings are deduped by collector id in `catalog.rs` (the source lists
 one printing entry per foiling); foiling is tracked on the collection side
-instead.
+instead. Each printing also carries its set's release date (`released`), and a
+card's printings are sorted newest-first — so the detail pane can default its
+image to the newest printing (Browse) or the newest owned printing (Collection),
+with the printings list clickable to switch.
 
 On the frontend, a **Browse / Collection** view toggle in `App` switches the
 grid's data source; mutations bump a `collVersion` counter that the binder /

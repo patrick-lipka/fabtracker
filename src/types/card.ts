@@ -9,6 +9,8 @@ export interface Printing {
   artists: string[];
   flavorText: string | null;
   imageUrl: string | null;
+  /** Set release date (ISO), if known. Printings are ordered newest-first. */
+  released: string | null;
 }
 
 export interface Card {
@@ -92,6 +94,8 @@ export const CONDITIONS = ["NM", "LP", "MP", "HP", "DMG"] as const;
 export interface CollectionCard {
   card: Card;
   quantity: number;
+  /** Distinct printing ids owned (in scope) — for showing the owned art. */
+  ownedPrintingIds: string[];
 }
 
 /** Map of card id → total owned quantity across all binders. */

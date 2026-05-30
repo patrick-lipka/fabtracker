@@ -46,7 +46,10 @@ Requires Rust ≥ 1.85 (`rustup update stable`) and Node ≥ 20.
   get_collection/search_collection aggregate by card_id (grid = one tile + total).
   Frontend: Browse/Collection toggle in `App`; detail pane has the add-copy form +
   per-copy steppers/move; mutations bump a `collVersion` to refresh
-  binders/collection/owned-counts/detail. `catalog.rs` dedupes printings by id.
+  binders/collection/owned-counts/detail. `catalog.rs` dedupes printings by id,
+  attaches each set's release date (`released`), and sorts printings newest-first;
+  the detail image defaults to newest (Browse) / newest-owned (Collection) and is
+  clickable per printing. Catalog changes need a Re-sync to take effect.
 - Backend tests: `cd src-tauri && cargo test --lib` (search parser + end-to-end
   search + DB round-trip; no network). The real network fetch test is
   `#[ignore]`d: `cargo test -- --ignored`.

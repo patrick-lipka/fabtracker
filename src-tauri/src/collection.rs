@@ -40,12 +40,19 @@ pub struct CardCollectionEntry {
     pub quantity: i64,
 }
 
-/// A card in the collection together with how many are owned (within scope).
+/// A card in the collection together with how many are owned (within scope)
+/// and which printings are owned (so the UI can show the owned art).
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CollectionCard {
     pub card: Card,
     pub quantity: i64,
+    pub owned_printing_ids: Vec<String>,
+}
+
+fn split_ids(csv: Option<String>) -> Vec<String> {
+    csv.map(|s| s.split(',').map(str::to_string).collect())
+        .unwrap_or_default()
 }
 
 // --------------------------------------------------------------------------
@@ -239,7 +246,7 @@ pub fn get_collection(
     conn: &Connection,
     binder_id: Option<i64>,
 ) -> Result<Vec<CollectionCard>, String> {
-    let base = "SELECT c.data, SUM(e.quantity)
+    let base = "SELECT c.data, SUM(e.quantity), GROUP_CONCAT(DISTINCT e.printing_id)
                 FROM collection_entries e
                 JOIN cards c ON c.id = e.card_id";
     let sql = match binder_id {
@@ -248,8 +255,8 @@ pub fn get_collection(
     };
     let mut stmt = conn.prepare(&sql).map_err(|e| format!("prepare collection: {e}"))?;
 
-    let map_row = |row: &rusqlite::Row| -> rusqlite::Result<(String, i64)> {
-        Ok((row.get(0)?, row.get(1)?))
+    let map_row = |row: &rusqlite::Row| -> rusqlite::Result<(String, i64, Option<String>)> {
+        Ok((row.get(0)?, row.get(1)?, row.get(2)?))
     };
     let rows = match binder_id {
         Some(id) => stmt.query_map(params![id], map_row),
@@ -259,10 +266,14 @@ pub fn get_collection(
 
     let mut out = Vec::new();
     for row in rows {
-        let (data, quantity) = row.map_err(|e| format!("read row: {e}"))?;
+        let (data, quantity, printing_ids) = row.map_err(|e| format!("read row: {e}"))?;
         let card: Card =
             serde_json::from_str(&data).map_err(|e| format!("deserialize card: {e}"))?;
-        out.push(CollectionCard { card, quantity });
+        out.push(CollectionCard {
+            card,
+            quantity,
+            owned_printing_ids: split_ids(printing_ids),
+        });
     }
     Ok(out)
 }
@@ -284,7 +295,8 @@ pub fn search_collection(
         ""
     };
     let sql = format!(
-        "SELECT cards.data, SUM(collection_entries.quantity)
+        "SELECT cards.data, SUM(collection_entries.quantity),
+                GROUP_CONCAT(DISTINCT collection_entries.printing_id)
          FROM collection_entries
          JOIN cards ON cards.id = collection_entries.card_id
          WHERE ({where_sql}){scope}
@@ -298,16 +310,20 @@ pub fn search_collection(
     let mut stmt = conn.prepare(&sql).map_err(|e| format!("prepare search_collection: {e}"))?;
     let rows = stmt
         .query_map(params_from_iter(params.iter()), |r| {
-            Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?))
+            Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?, r.get::<_, Option<String>>(2)?))
         })
         .map_err(|e| format!("query search_collection: {e}"))?;
 
     let mut out = Vec::new();
     for row in rows {
-        let (data, quantity) = row.map_err(|e| format!("read row: {e}"))?;
+        let (data, quantity, printing_ids) = row.map_err(|e| format!("read row: {e}"))?;
         let card: Card =
             serde_json::from_str(&data).map_err(|e| format!("deserialize card: {e}"))?;
-        out.push(CollectionCard { card, quantity });
+        out.push(CollectionCard {
+            card,
+            quantity,
+            owned_printing_ids: split_ids(printing_ids),
+        });
     }
     Ok(out)
 }

@@ -22,6 +22,8 @@ pub struct Printing {
     pub artists: Vec<String>,
     pub flavor_text: Option<String>,
     pub image_url: Option<String>,
+    /// Set release date (ISO), if known. Printings are sorted newest-first.
+    pub released: Option<String>,
 }
 
 /// A unique Flesh and Blood card (independent of how many times it was printed).

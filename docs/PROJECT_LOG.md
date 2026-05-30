@@ -7,6 +7,16 @@ The roadmap below it is the north star; the original vision follows.
 
 ## Log
 
+### 2026-05-31 — Detail image follows the selected printing ✅
+- Pulled set **release dates** from `set.json` into the catalog; each `Printing`
+  now carries `released`, and a card's printings are **sorted newest-first**
+  (`catalog.rs`). Verified against real data (all 4285 cards correctly ordered).
+- The detail pane shows the chosen printing's art: defaults to the **newest**
+  printing in Browse and the **newest owned** printing in Collection, and the
+  Printings list is clickable to switch (with the shown one highlighted + the
+  release date displayed). Image element is keyed by URL so it reloads cleanly.
+- **Re-sync** needed to populate dates / ordering for the already-cached catalog.
+
 ### 2026-05-31 — Printing, foiling & condition tracking ✅
 - Collection entries are now keyed by **(binder, card, printing, foiling,
   condition)** + quantity. Migration v3 rebuilds `collection_entries`,

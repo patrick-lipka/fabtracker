@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   CONDITIONS,
   FOILINGS,
@@ -11,6 +11,8 @@ import { pitchColor, rarityColor, statDisplay } from "../lib/fab";
 
 interface CardDetailProps {
   card: Card | null;
+  /** Browse vs Collection — sets the default printing shown. */
+  view: "browse" | "collection";
   /** Run a search query (clicking a facet populates the search box). */
   onSearch: (query: string) => void;
   /** All binders (for the add-copy form and per-entry move target). */
@@ -31,12 +33,18 @@ function facet(field: string, value: string): string {
 /** Right-hand inspector showing the full details of the selected card. */
 export function CardDetail({
   card,
+  view,
   onSearch,
   binders,
   entries,
   onAdjustEntry,
   onMoveEntry,
 }: CardDetailProps) {
+  // A printing the user explicitly clicked; reset when the card changes so the
+  // per-tab default applies again. (Hooks must run before the early return.)
+  const [manualPrintingId, setManualPrintingId] = useState<string | null>(null);
+  useEffect(() => setManualPrintingId(null), [card?.id]);
+
   if (!card) {
     return (
       <div className="flex h-full items-center justify-center p-8 text-center text-sm text-muted">
@@ -47,10 +55,24 @@ export function CardDetail({
 
   const flavor = card.printings.find((p) => p.flavorText)?.flavorText ?? null;
 
+  // Which printing's image to show. Printings are ordered newest-first.
+  // Browse → newest; Collection → newest owned (fall back to newest).
+  const ownedIds = new Set(entries.map((e) => e.printingId));
+  const newest = card.printings[0]?.id ?? null;
+  const newestOwned = card.printings.find((p) => ownedIds.has(p.id))?.id ?? null;
+  const defaultPrintingId = view === "collection" ? newestOwned ?? newest : newest;
+  const shownPrintingId =
+    manualPrintingId && card.printings.some((p) => p.id === manualPrintingId)
+      ? manualPrintingId
+      : defaultPrintingId;
+  const shownPrinting =
+    card.printings.find((p) => p.id === shownPrintingId) ?? null;
+  const shownImage = shownPrinting?.imageUrl ?? card.imageUrl;
+
   return (
     <div className="flex h-full flex-col overflow-y-auto">
       <div className="p-5">
-        <CardImage card={card} />
+        <CardImage key={shownImage ?? "none"} imageUrl={shownImage} card={card} />
       </div>
 
       <div className="flex flex-col gap-4 px-5 pb-8">
@@ -148,39 +170,51 @@ export function CardDetail({
           </p>
         )}
 
-        {/* Printings — click a set to see all its cards. */}
+        {/* Printings — click a row to show its art; click the set to search it. */}
         <div>
           <SectionLabel>
             Printings{card.printings.length > 1 ? ` (${card.printings.length})` : ""}
           </SectionLabel>
           <div className="flex flex-col gap-1.5">
-            {card.printings.map((p, i) => (
-              <div
-                key={`${p.id}-${i}`}
-                className="flex items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-xs"
-              >
-                <div className="min-w-0">
-                  <button
-                    type="button"
-                    onClick={() => onSearch(facet("set", p.setName))}
-                    title={`Search all cards in ${p.setName}`}
-                    className="block max-w-full truncate text-left text-gray-200 hover:text-accent"
-                  >
-                    {p.setName}
-                  </button>
-                  <div className="text-muted">
-                    {p.id}
-                    {p.artists.length > 0 && ` · ${p.artists.join(", ")}`}
-                  </div>
-                </div>
-                <span
-                  className="ml-2 shrink-0 rounded px-1.5 py-0.5 font-medium"
-                  style={{ color: rarityColor(p.rarity), background: `${rarityColor(p.rarity)}1a` }}
+            {card.printings.map((p, i) => {
+              const isShown = p.id === shownPrintingId;
+              return (
+                <div
+                  key={`${p.id}-${i}`}
+                  role="button"
+                  onClick={() => setManualPrintingId(p.id)}
+                  title="Show this printing's art"
+                  className={`flex cursor-pointer items-center justify-between rounded-lg border bg-surface-2 px-3 py-1.5 text-xs ${
+                    isShown ? "border-accent ring-1 ring-accent/50" : "border-border"
+                  }`}
                 >
-                  {p.rarity}
-                </span>
-              </div>
-            ))}
+                  <div className="min-w-0">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSearch(facet("set", p.setName));
+                      }}
+                      title={`Search all cards in ${p.setName}`}
+                      className="block max-w-full truncate text-left text-gray-200 hover:text-accent"
+                    >
+                      {p.setName}
+                    </button>
+                    <div className="text-muted">
+                      {p.id}
+                      {p.released && ` · ${p.released.slice(0, 10)}`}
+                      {p.artists.length > 0 && ` · ${p.artists.join(", ")}`}
+                    </div>
+                  </div>
+                  <span
+                    className="ml-2 shrink-0 rounded px-1.5 py-0.5 font-medium"
+                    style={{ color: rarityColor(p.rarity), background: `${rarityColor(p.rarity)}1a` }}
+                  >
+                    {p.rarity}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -188,12 +222,12 @@ export function CardDetail({
   );
 }
 
-function CardImage({ card }: { card: Card }) {
+function CardImage({ imageUrl, card }: { imageUrl: string | null; card: Card }) {
   const [imgOk, setImgOk] = useState(true);
-  if (card.imageUrl && imgOk) {
+  if (imageUrl && imgOk) {
     return (
       <img
-        src={card.imageUrl}
+        src={imageUrl}
         alt={card.name}
         onError={() => setImgOk(false)}
         className="mx-auto w-full max-w-[280px] rounded-2xl"

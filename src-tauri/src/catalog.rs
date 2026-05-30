@@ -83,6 +83,14 @@ struct RawPrinting {
 struct RawSet {
     id: String,
     name: String,
+    #[serde(default)]
+    printings: Vec<RawSetPrinting>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RawSetPrinting {
+    #[serde(default)]
+    initial_release_date: Option<String>,
 }
 
 // --------------------------------------------------------------------------
@@ -122,19 +130,35 @@ async fn fetch(client: &reqwest::Client, url: &str) -> Result<String, String> {
 fn parse_catalog(card_json: &str, set_json: &str) -> Result<Vec<Card>, String> {
     let raw_sets: Vec<RawSet> = serde_json::from_str(set_json)
         .map_err(|e| format!("failed to parse set.json: {e}"))?;
-    let set_names: HashMap<String, String> =
-        raw_sets.into_iter().map(|s| (s.id, s.name)).collect();
+    let mut set_names: HashMap<String, String> = HashMap::new();
+    let mut set_dates: HashMap<String, String> = HashMap::new();
+    for s in raw_sets {
+        // Most recent release date among the set's editions.
+        if let Some(date) = s
+            .printings
+            .iter()
+            .filter_map(|p| p.initial_release_date.clone())
+            .max()
+        {
+            set_dates.insert(s.id.clone(), date);
+        }
+        set_names.insert(s.id, s.name);
+    }
 
     let raw_cards: Vec<RawCard> = serde_json::from_str(card_json)
         .map_err(|e| format!("failed to parse card.json: {e}"))?;
 
     Ok(raw_cards
         .into_iter()
-        .map(|c| map_card(c, &set_names))
+        .map(|c| map_card(c, &set_names, &set_dates))
         .collect())
 }
 
-fn map_card(c: RawCard, set_names: &HashMap<String, String>) -> Card {
+fn map_card(
+    c: RawCard,
+    set_names: &HashMap<String, String>,
+    set_dates: &HashMap<String, String>,
+) -> Card {
     let mut printings: Vec<Printing> = c
         .printings
         .into_iter()
@@ -144,6 +168,7 @@ fn map_card(c: RawCard, set_names: &HashMap<String, String>) -> Card {
             artists: p.artists,
             flavor_text: non_empty(p.flavor_text_plain),
             image_url: p.image_url.filter(|s| !s.is_empty()),
+            released: set_dates.get(&p.set_id).cloned(),
             set_id: p.set_id,
             id: p.id,
         })
@@ -152,6 +177,9 @@ fn map_card(c: RawCard, set_names: &HashMap<String, String>) -> Card {
     // side instead, so collapse printings to one per collector id.
     let mut seen = std::collections::HashSet::new();
     printings.retain(|p| seen.insert(p.id.clone()));
+    // Newest first (printings without a known date sort last). ISO date strings
+    // compare chronologically, so a plain string compare is correct.
+    printings.sort_by(|a, b| b.released.cmp(&a.released));
 
     let rarity = printings.first().map(|p| p.rarity.clone()).unwrap_or_default();
     let image_url = printings.iter().find_map(|p| p.image_url.clone());
@@ -239,5 +267,16 @@ mod tests {
             .expect("Katsu should be present");
         assert!(katsu.is_hero);
         assert!(!katsu.printings.is_empty());
+
+        // Release dates are populated and printings are ordered newest-first.
+        assert!(cards
+            .iter()
+            .any(|c| c.printings.iter().any(|p| p.released.is_some())));
+        for c in &cards {
+            let dates: Vec<&Option<String>> = c.printings.iter().map(|p| &p.released).collect();
+            let mut sorted = dates.clone();
+            sorted.sort_by(|a, b| b.cmp(a)); // newest first, None last
+            assert_eq!(dates, sorted, "printings not newest-first for {}", c.name);
+        }
     }
 }
