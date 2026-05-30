@@ -35,6 +35,8 @@ Requires Rust ≥ 1.85 (`rustup update stable`) and Node ≥ 20.
   parameterized SQL WHERE; `db::search_cards` runs it. Command `search_cards`;
   frontend calls it debounced (empty query → show in-memory full list). Numeric
   filters use indexed columns; array fields use `json_each`/`json_extract`.
+  `search_cards(query, ownedOnly)` and the `have:` field restrict to collected
+  cards (shared `search::OWNED_CLAUSE`); the header "Owned" switch sets ownedOnly.
 - Collection: `src-tauri/src/collection.rs` — `binders` + `collection_entries`
   tables (migration v2 in `db.rs`). Cards tracked by unique id + quantity;
   multi-binder; `move_card` is atomic; deleting a binder cascades. Commands:

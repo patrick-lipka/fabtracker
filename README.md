@@ -27,7 +27,8 @@ think Moxfield, but native-fast and offline-capable.
   into binders (create/rename/delete), with owned-quantity badges. Add a card to
   a binder from the grid ("+" on hover or right-click) or via per-binder
   steppers in the detail pane; move cards between binders from either place.
-  "All" aggregates across binders.
+  "All" aggregates across binders. An **"Owned"** switch (or `have:` in a query)
+  restricts search to cards you own.
 
 ### Where the data comes from
 

@@ -15,9 +15,12 @@ export function getCards(): Promise<Card[]> {
   return invoke<Card[]>("get_cards");
 }
 
-/** Run a query-language search against the catalog (see search syntax help). */
-export function searchCards(query: string): Promise<Card[]> {
-  return invoke<Card[]>("search_cards", { query });
+/**
+ * Run a query-language search against the catalog (see search syntax help).
+ * `ownedOnly` additionally restricts results to cards in the collection.
+ */
+export function searchCards(query: string, ownedOnly: boolean): Promise<Card[]> {
+  return invoke<Card[]>("search_cards", { query, ownedOnly });
 }
 
 /** Download the latest catalog from the data source, cache it, and return it. */

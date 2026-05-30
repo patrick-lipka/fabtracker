@@ -134,9 +134,19 @@ pub fn load_cards(conn: &Connection) -> Result<Vec<Card>, String> {
 }
 
 /// Run a query-language search (see `search.rs`) and return matching cards,
-/// alphabetically by name.
-pub fn search_cards(conn: &Connection, query: &str) -> Result<Vec<Card>, String> {
+/// alphabetically by name. When `owned_only` is set, results are restricted to
+/// cards present in the collection.
+pub fn search_cards(
+    conn: &Connection,
+    query: &str,
+    owned_only: bool,
+) -> Result<Vec<Card>, String> {
     let (where_sql, params) = crate::search::build_where(query);
+    let where_sql = if owned_only {
+        format!("({where_sql}) AND {}", crate::search::OWNED_CLAUSE)
+    } else {
+        where_sql
+    };
     let sql = format!("SELECT data FROM cards WHERE {where_sql} ORDER BY name COLLATE NOCASE");
     let mut stmt = conn.prepare(&sql).map_err(|e| format!("prepare search: {e}"))?;
     let rows = stmt
@@ -280,7 +290,7 @@ mod tests {
         replace_cards(&mut conn, &cards).unwrap();
 
         let names = |q: &str| {
-            let mut n: Vec<String> = search_cards(&conn, q)
+            let mut n: Vec<String> = search_cards(&conn, q, false)
                 .unwrap()
                 .into_iter()
                 .map(|c| c.name)
@@ -298,6 +308,28 @@ mod tests {
         assert_eq!(names("name:\"dorinthea\""), ["Dorinthea Ironsong"]);
         assert_eq!(names("pitch:1 c:ninja"), ["Snatch"]);
         assert_eq!(names("guardian crush"), ["Crippling Crush"]);
+
+        // "Owned only": with nothing collected, no results.
+        assert!(search_cards(&conn, "", true).unwrap().is_empty());
+        // Collect Snatch (card "a") into the seeded "Main" binder (id 1).
+        conn.execute(
+            "INSERT INTO collection_entries (binder_id, card_id, quantity) VALUES (1, 'a', 2)",
+            [],
+        )
+        .unwrap();
+        let owned: Vec<String> = search_cards(&conn, "", true)
+            .unwrap()
+            .into_iter()
+            .map(|c| c.name)
+            .collect();
+        assert_eq!(owned, ["Snatch"]);
+        // The `have:` token does the same thing inline.
+        assert_eq!(
+            search_cards(&conn, "have:1", false).unwrap()[0].name,
+            "Snatch"
+        );
+        // Owned filter still composes with other terms.
+        assert!(search_cards(&conn, "c:guardian", true).unwrap().is_empty());
     }
 
     #[test]

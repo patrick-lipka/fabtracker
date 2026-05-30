@@ -34,6 +34,8 @@ export default function App() {
   const [lastSynced, setLastSynced] = useState<number | null>(null);
   const [results, setResults] = useState<Card[] | null>(null);
   const [searching, setSearching] = useState(false);
+  // Browse view: restrict to cards in the collection ("Owned" switch / have:).
+  const [ownedOnly, setOwnedOnly] = useState(false);
 
   // Collection state.
   const [view, setView] = useState<View>("browse");
@@ -98,6 +100,8 @@ export default function App() {
   }, [selectedId, collVersion]);
 
   // Debounced backend search (browse view only; collection filters client-side).
+  // An empty query is handled in-memory below (including the owned filter), so
+  // we only hit the backend when there's an actual query.
   useEffect(() => {
     if (view !== "browse") return;
     const q = query.trim();
@@ -108,13 +112,13 @@ export default function App() {
     }
     setSearching(true);
     const handle = setTimeout(() => {
-      searchCards(q)
+      searchCards(q, ownedOnly)
         .then(setResults)
         .catch(() => setResults([]))
         .finally(() => setSearching(false));
     }, 180);
     return () => clearTimeout(handle);
-  }, [query, view]);
+  }, [query, view, ownedOnly]);
 
   async function sync() {
     setSyncing(true);
@@ -163,7 +167,10 @@ export default function App() {
     );
   }, [collectionCards, query]);
 
-  const browseCards = results ?? cards;
+  // With an active query the backend already applied the owned filter; for an
+  // empty query we apply it in-memory against the owned map (instant, no IPC).
+  const browseCards =
+    results ?? (ownedOnly ? cards.filter((c) => (owned[c.id] ?? 0) > 0) : cards);
 
   const isBrowse = view === "browse";
   const displayCards = isBrowse ? browseCards : collectionFiltered.map((cc) => cc.card);
@@ -214,6 +221,9 @@ export default function App() {
                 searching={isBrowse && searching}
               />
             </div>
+            {isBrowse && (
+              <Switch label="Owned" checked={ownedOnly} onChange={setOwnedOnly} />
+            )}
             {lastSynced && (
               <span className="whitespace-nowrap text-[11px] text-muted">
                 Synced {formatSynced(lastSynced)}
@@ -335,6 +345,40 @@ export default function App() {
         />
       )}
     </div>
+  );
+}
+
+function Switch({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      title="Show only cards in your collection"
+      className="flex items-center gap-2 text-xs text-gray-300"
+    >
+      <span
+        className={`relative h-4 w-7 rounded-full transition ${
+          checked ? "bg-accent" : "bg-border"
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all ${
+            checked ? "left-3.5" : "left-0.5"
+          }`}
+        />
+      </span>
+      {label}
+    </button>
   );
 }
 

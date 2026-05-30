@@ -15,6 +15,11 @@
 
 use rusqlite::types::Value;
 
+/// SQL predicate that is true for cards present in the collection (any binder).
+/// Used by the `have:` field and by the "owned only" search toggle.
+pub const OWNED_CLAUSE: &str =
+    "EXISTS (SELECT 1 FROM collection_entries ce WHERE ce.card_id = cards.id)";
+
 /// Build a SQL `WHERE` clause and its bound parameters for `query`.
 /// An empty / whitespace query yields `"1=1"` (match everything).
 pub fn build_where(query: &str) -> (String, Vec<Value>) {
@@ -132,6 +137,9 @@ fn field_fragment(key: &str, op: &str, value: &str) -> Option<(String, Vec<Value
         )),
         "r" | "rarity" => Some(("LOWER(rarity) LIKE ?".into(), vec![like(value)])),
         "color" | "col" => Some(("LOWER(IFNULL(color,'')) LIKE ?".into(), vec![like(value)])),
+        // `have:` / `owned:` — restrict to cards in the collection. The value is
+        // ignored (presence is the filter), so `have:1`, `have:yes`, etc. work.
+        "have" | "owned" | "own" => Some((OWNED_CLAUSE.into(), vec![])),
         _ => numeric_fragment(&key, op, value),
     }
 }

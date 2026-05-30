@@ -18,7 +18,7 @@ const EXAMPLES: [string, string][] = [
 ];
 
 const FIELDS =
-  "name, text/o, type/t, class/c, keyword/kw, trait, set/s, rarity/r, color · " +
+  "name, text/o, type/t, class/c, keyword/kw, trait, set/s, rarity/r, color, have · " +
   "numeric (: = > < >= <=): pitch, cost, power/pow, defense/def, health/hp, intellect/int, arcane";
 
 /**

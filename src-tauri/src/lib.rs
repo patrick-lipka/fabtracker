@@ -53,10 +53,15 @@ fn get_catalog_info(db: State<'_, Db>) -> Result<CatalogInfo, String> {
 }
 
 /// Run a query-language search against the catalog (see `search.rs`).
+/// `owned_only` additionally restricts results to cards in the collection.
 #[tauri::command]
-fn search_cards(query: String, db: State<'_, Db>) -> Result<Vec<Card>, String> {
+fn search_cards(
+    query: String,
+    owned_only: bool,
+    db: State<'_, Db>,
+) -> Result<Vec<Card>, String> {
     let conn = db.lock().map_err(|e| e.to_string())?;
-    db::search_cards(&conn, &query)
+    db::search_cards(&conn, &query, owned_only)
 }
 
 /// Download the latest catalog, replace the DB copy, and return the cards.

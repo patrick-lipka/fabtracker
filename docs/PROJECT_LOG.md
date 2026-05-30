@@ -7,6 +7,14 @@ The roadmap below it is the north star; the original vision follows.
 
 ## Log
 
+### 2026-05-31 — `have:` / "Owned" search filter ✅
+- Search can now restrict to cards in the collection. Backend: a shared
+  `search::OWNED_CLAUSE` (EXISTS over `collection_entries`), exposed both as a
+  `have:`/`owned:` query field and as an `owned_only` flag on `search_cards`.
+- Frontend: an "Owned" toggle switch in the header (Browse view). With an active
+  query it's applied in SQL; with an empty query it's applied in-memory against
+  the owned map (instant). Tests cover the owned filter + the `have:` token.
+
 ### 2026-05-31 — Step 5: collection management with binders ✅
 - DB migration v2 adds `binders` and `collection_entries` (PK binder_id+card_id,
   quantity), with a seeded "Main" binder. Applied cleanly to the existing v1 DB.
@@ -126,8 +134,9 @@ Rough order; each is its own focused chunk of work.
    SQLite (scalar columns + JSON functions). FTS5 for faster/fuzzier text search
    is a possible future optimization but not needed at this scale.
 5. **Collection management** — ✅ done (v1). Binders, per-card quantities,
-   add/move/remove, owned badges. Follow-ups: per-printing/foiling granularity,
-   a `have:`/`binder:` search filter, set/value totals.
+   add/move/remove, owned badges, and a `have:` / "Owned" search filter.
+   Follow-ups: per-printing/foiling granularity, a `binder:` search filter,
+   set/value totals.
 6. **Deck building.** Build decks against a hero, validate legality (class,
    talent, card limits, format), show the curve/breakdown.
 7. **"Missing cards" view.** Diff a deck (or a precon) against the collection.
