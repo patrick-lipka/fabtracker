@@ -1,72 +1,65 @@
-// Presentation helpers for Flesh and Blood card data: turning the domain model
-// into human-readable labels and consistent colors.
+// Presentation helpers for Flesh and Blood card data: colors and small
+// formatting utilities. The backend already provides the printed type line
+// (`typeText`) and resolved rarity labels, so this stays thin.
 
-import type { Card, CardType, Pitch, Rarity } from "../types/card";
+import type { Card } from "../types/card";
 
-/** Pitch value → hex color (matches the --color-pitch-* theme tokens). */
-export const PITCH_COLOR: Record<Pitch, string> = {
-  1: "#d8403a",
-  2: "#e6b73e",
-  3: "#3d7fd6",
+/** Pitch strip color name → hex (matches the --color-pitch-* theme tokens). */
+const PITCH_HEX: Record<string, string> = {
+  Red: "#d8403a",
+  Yellow: "#e6b73e",
+  Blue: "#3d7fd6",
 };
 
-/** A neutral color for cards with no pitch (heroes, weapons, equipment). */
+/** Neutral accent for cards with no pitch color (heroes, weapons, equipment). */
 export const NO_PITCH_COLOR = "#3a4150";
 
-export function pitchColor(pitch: Pitch | null): string {
-  return pitch ? PITCH_COLOR[pitch] : NO_PITCH_COLOR;
+export function pitchColor(color: string | null): string {
+  return (color && PITCH_HEX[color]) || NO_PITCH_COLOR;
 }
 
-const CARD_TYPE_LABEL: Record<CardType, string> = {
-  Hero: "Hero",
-  Weapon: "Weapon",
-  Equipment: "Equipment",
-  Action: "Action",
-  AttackReaction: "Attack Reaction",
-  DefenseReaction: "Defense Reaction",
-  Instant: "Instant",
-  Resource: "Resource",
-  Token: "Token",
-};
-
-export function cardTypeLabel(type: CardType): string {
-  return CARD_TYPE_LABEL[type];
-}
-
-/**
- * The full type line as printed on a card, e.g.
- * "Ninja Action - Attack" or "Generic Equipment - Chest".
- */
-export function typeLine(card: Card): string {
-  const left = [...card.talents, ...card.classes, cardTypeLabel(card.cardType)]
-    .filter(Boolean)
-    .join(" ");
-  return card.subtypes.length ? `${left} - ${card.subtypes.join(" ")}` : left;
-}
-
-const RARITY_LABEL: Record<Rarity, string> = {
-  Token: "Token",
-  Common: "Common",
-  Rare: "Rare",
-  SuperRare: "Super Rare",
-  Majestic: "Majestic",
-  Legendary: "Legendary",
-  Fabled: "Fabled",
-  Promo: "Promo",
-};
-
-export function rarityLabel(rarity: Rarity): string {
-  return RARITY_LABEL[rarity];
-}
-
-/** Color used for the rarity chip. */
-export const RARITY_COLOR: Record<Rarity, string> = {
-  Token: "#8b93a7",
+/** Color for a rarity chip, keyed by the resolved rarity label. */
+const RARITY_HEX: Record<string, string> = {
   Common: "#9aa3b5",
   Rare: "#7fb2e6",
-  SuperRare: "#67d2c0",
+  "Super Rare": "#67d2c0",
   Majestic: "#e0b341",
   Legendary: "#c47ae0",
   Fabled: "#e07ab0",
+  Marvel: "#ff8a5c",
   Promo: "#a0a7b8",
+  Token: "#8b93a7",
+  Basic: "#8b93a7",
 };
+
+export function rarityColor(rarity: string): string {
+  return RARITY_HEX[rarity] ?? "#8b93a7";
+}
+
+/**
+ * Display a stat: the parsed number if present, otherwise the raw text
+ * (e.g. "*", "X"), otherwise an em dash.
+ */
+export function statDisplay(
+  value: number | null,
+  text: string | null,
+): string {
+  if (value !== null) return String(value);
+  if (text) return text;
+  return "—";
+}
+
+/** The text we match a search query against. */
+export function searchText(card: Card): string {
+  return [
+    card.name,
+    card.functionalText ?? "",
+    card.typeText,
+    ...card.types,
+    ...card.traits,
+    ...card.keywords,
+    ...card.sets,
+  ]
+    .join(" ")
+    .toLowerCase();
+}

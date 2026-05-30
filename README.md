@@ -3,20 +3,27 @@
 A local-first, self-hostable collection & deck manager for **Flesh and Blood** —
 think Moxfield, but native-fast and offline-capable.
 
-> **Status:** Step 1 — browse & inspect cards (mock data). See
+> **Status:** Step 2 — browse & inspect the full, real card pool. See
 > [`docs/PROJECT_LOG.md`](docs/PROJECT_LOG.md) for the roadmap and where we are.
 
 ## What it does today
 
-- Loads a card catalog from the Rust backend and displays it in a responsive,
-  virtualized grid.
-- Click any card to inspect full details (stats, type line, keywords, text,
-  set/rarity/artist).
-- Live substring search across name, text, type, class, talent and keywords.
+- Downloads the **full real Flesh and Blood card catalog** (~4285 cards, with
+  official card images) on first run and caches it locally for offline use; a
+  "Re-sync" button refreshes it.
+- Displays the catalog in a responsive, virtualized grid with real card images
+  (a styled frame is shown while images load or if one is missing).
+- Click any card to inspect full details (stats, type line, keywords, traits,
+  rules text, and every printing with its set/rarity/artist).
+- Live substring search across name, text, type, traits, keywords and sets.
 
-The card data is currently a **bundled mock catalog** (`src-tauri/data/mock_cards.json`).
-Pulling real, official card data is a later step — the architecture is set up so
-that's a localized change.
+### Where the data comes from
+
+The card data is fetched at runtime from the community-maintained
+[the-fab-cube/flesh-and-blood-cards](https://github.com/the-fab-cube/flesh-and-blood-cards)
+dataset (English). We **don't** vendor it into this repo — the data and images
+are Legend Story Studios IP — so the app downloads it into its local cache
+directory and parses it there. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Tech stack
 
@@ -53,9 +60,13 @@ npm run build          # type-check + production build of the frontend
 npm run tauri build    # produce a distributable desktop binary
 ```
 
-> Frontend-only (`npm run dev`) works for UI work, but `invoke("get_cards")`
-> only resolves inside the Tauri runtime, so the grid will be empty in a plain
-> browser. Use `npm run tauri dev` to see real data.
+> Frontend-only (`npm run dev`) works for UI work, but the Tauri `invoke`
+> commands only resolve inside the Tauri runtime, so the grid will be empty in a
+> plain browser. Use `npm run tauri dev` to see real data.
+>
+> On first launch the app shows a **Download card data** button (one-time ~20 MB
+> fetch, then cached). The cache lives in the OS app-cache dir, e.g. on macOS
+> `~/Library/Caches/com.fabtracker.app/`.
 
 ## Project layout
 
@@ -67,9 +78,9 @@ fabtracker/
 │   ├── types/card.ts         # Card type — mirror of the Rust model
 │   └── App.tsx               # layout + state
 ├── src-tauri/                # Rust backend (Tauri)
-│   ├── src/card.rs           # Card domain model
-│   ├── src/lib.rs            # Tauri app + commands (get_cards)
-│   └── data/mock_cards.json  # bundled mock catalog
+│   ├── src/card.rs           # Card domain model (Card + Printing)
+│   ├── src/catalog.rs        # download / cache / parse official data
+│   └── src/lib.rs            # Tauri app + commands (get_cards, sync_cards)
 └── docs/
     ├── ARCHITECTURE.md       # decisions & rationale
     └── PROJECT_LOG.md        # roadmap + running log to resume work

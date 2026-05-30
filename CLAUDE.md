@@ -20,10 +20,14 @@ Requires Rust ≥ 1.85 (`rustup update stable`) and Node ≥ 20.
 - All Tauri `invoke` calls go through `src/lib/api.ts` — nowhere else.
 - Display logic (colors, labels, type lines) lives in `src/lib/fab.ts`, not in
   components.
-- The `Card` model is defined in `src-tauri/src/card.rs` and hand-mirrored in
-  `src/types/card.ts` (Rust serializes camelCase). Keep them in sync; if it
-  churns, switch to generating the TS (`ts-rs`).
-- Mock catalog: `src-tauri/data/mock_cards.json`, served by `get_cards`.
+- The `Card`/`Printing` model is defined in `src-tauri/src/card.rs` and
+  hand-mirrored in `src/types/card.ts` (Rust serializes camelCase). Keep them in
+  sync; if it churns, switch to generating the TS (`ts-rs`).
+- Card data is downloaded at runtime by `src-tauri/src/catalog.rs` (the
+  the-fab-cube dataset) into the OS app-cache dir — never committed. `get_cards`
+  reads the cache; `sync_cards` downloads. Source-schema mapping lives only in
+  `catalog.rs`.
+- Network-gated backend test: `cd src-tauri && cargo test -- --ignored`.
 
 ## House style
 - Match the surrounding code's idiom and comment density.

@@ -7,6 +7,27 @@ The roadmap below it is the north star; the original vision follows.
 
 ## Log
 
+### 2026-05-30 — Step 2: real card data ✅
+- Source: the community [the-fab-cube/flesh-and-blood-cards](https://github.com/the-fab-cube/flesh-and-blood-cards)
+  dataset (English, `develop` ref) — `card.json` (~20 MB, **4285 unique cards**)
+  + `set.json` for set names. Real LSS card images via per-printing `image_url`.
+- **Licensing decision:** the dataset has no license and the data/images are LSS
+  IP, so we do **not** vendor it. The Rust backend downloads it at runtime into
+  the app cache dir (`app_cache_dir`) and parses on load. Removed the bundled
+  mock catalog.
+- New Rust module `catalog.rs`: `Raw*` structs for the source schema, mapped
+  into our domain model; `sync()` (download + cache + parse) and `load_cached()`.
+  Added `reqwest` (rustls + gzip).
+- Revised `Card` model to match reality: string stats parsed to numbers + raw
+  text fallback (`*`/`X`/`XX`), `types`/`traits`/`keywords`, printed `typeText`,
+  and a `printings` list (set/rarity/artist/image/flavor).
+- Commands: `get_cards` (cache-aware, empty ⇒ not synced) and async `sync_cards`.
+- Frontend: real card images in grid + detail with the styled frame as fallback;
+  first-run "Download card data" flow and a header "Re-sync" button.
+- Verified: `cargo check --tests`, network-gated test
+  `cargo test -- --ignored` (downloads + parses 4285 cards, cache round-trips),
+  `npm run build`, and `tauri dev` with a seeded cache rendering the real grid.
+
 ### 2026-05-30 — Step 1: card browser (mock data) ✅
 - Scaffolded Tauri v2 + React 19 + TypeScript + Vite; added Tailwind v4 (Vite
   plugin) and `@tanstack/react-virtual`.
@@ -28,14 +49,13 @@ The roadmap below it is the north star; the original vision follows.
 Rough order; each is its own focused chunk of work.
 
 1. **Card browser (mock data)** — ✅ done. Browse + inspect.
-2. **Real card data.** Replace the mock catalog with official Flesh and Blood
-   data. Candidate sources to evaluate: the community
-   [flesh-and-blood-cards dataset](https://github.com/the-fab-cube/flesh-and-blood-cards)
-   (structured CSV/JSON, MIT-ish), and card images. Do the fetch + parse in
-   Rust, cache locally. Map the source into our `Card` model in one place.
+2. **Real card data** — ✅ done. Runtime download + cache + parse of the
+   the-fab-cube dataset (4285 cards), real images, first-run sync flow.
 3. **Local persistence.** SQLite in the Rust core (e.g. `sqlx`/`rusqlite`) for
    the card catalog + the user's collection. Migrations. This unlocks fast
-   queries and offline-by-default.
+   queries and offline-by-default. Currently the full catalog is parsed from the
+   cached JSON on every launch and sent over IPC in one shot — fine at 4285
+   cards, but SQLite + querying/paging in Rust is the next scalability step.
 4. **Rich search syntax.** Grow `SearchBar` into a real query language
    (`c:ninja pitch:1 pow>=4 set:wtr`). Parse in Rust against the DB / an index;
    keep the current substring search as the fallback.
@@ -57,6 +77,12 @@ Rough order; each is its own focused chunk of work.
   TanStack Query) when collection + deck state gets shared across many views.
 - **Component library.** Consider shadcn/ui or Radix when the UI grows beyond a
   handful of bespoke components.
+- **Content Security Policy.** `tauri.conf.json` currently has `csp: null` so
+  remote card images load freely. Before shipping, set a real CSP (allow
+  `img-src https://storage.googleapis.com` etc.) — or cache images locally.
+- **Data source / freshness.** Pinned to the `develop` ref in `catalog.rs`
+  (`DATA_REF`). Consider pinning to a release tag for reproducibility, and
+  showing the last-synced date / catalog version in the UI.
 
 ---
 

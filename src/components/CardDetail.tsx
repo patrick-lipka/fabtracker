@@ -1,10 +1,6 @@
+import { useState } from "react";
 import type { Card } from "../types/card";
-import {
-  pitchColor,
-  rarityLabel,
-  RARITY_COLOR,
-  typeLine,
-} from "../lib/fab";
+import { pitchColor, rarityColor, statDisplay } from "../lib/fab";
 
 interface CardDetailProps {
   card: Card | null;
@@ -20,121 +16,114 @@ export function CardDetail({ card }: CardDetailProps) {
     );
   }
 
-  const accent = pitchColor(card.pitch);
-  const isHero = card.cardType === "Hero";
+  const flavor = card.printings.find((p) => p.flavorText)?.flavorText ?? null;
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
-      {/* Big placeholder "card" preview */}
       <div className="p-5">
-        <div
-          className="relative mx-auto flex aspect-[2.5/3.5] w-full max-w-[280px] flex-col overflow-hidden rounded-2xl border border-border bg-surface-2"
-          style={{ boxShadow: `inset 0 0 0 3px ${accent}` }}
-        >
-          <div className="flex items-start justify-between p-4">
-            {card.cost !== null ? (
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-lg font-bold text-amber-200 ring-1 ring-white/10">
-                {card.cost}
-              </span>
-            ) : (
-              <span className="h-9 w-9" />
-            )}
-            {card.pitch !== null && (
-              <span
-                className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-black/80"
-                style={{ background: accent }}
-              >
-                {card.pitch}
-              </span>
-            )}
-          </div>
-          <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
-            <h2 className="text-xl font-bold leading-tight text-white">
-              {card.name}
-            </h2>
-            <p className="mt-2 text-xs text-muted">{typeLine(card)}</p>
-          </div>
-          <div className="flex items-center justify-between p-4 text-lg font-bold">
-            {isHero ? (
-              <>
-                <span style={{ color: "#e0584f" }}>{card.health ?? "—"}</span>
-                <span style={{ color: "#6fa8e6" }}>{card.intellect ?? "—"}</span>
-              </>
-            ) : (
-              <>
-                <span style={{ color: "#e0584f" }}>{card.power ?? "—"}</span>
-                <span style={{ color: "#6fa8e6" }}>{card.defense ?? "—"}</span>
-              </>
-            )}
-          </div>
-        </div>
+        <CardImage card={card} />
       </div>
 
-      {/* Details */}
       <div className="flex flex-col gap-4 px-5 pb-8">
         <div>
           <h2 className="text-lg font-bold text-white">{card.name}</h2>
-          <p className="text-sm text-muted">{typeLine(card)}</p>
+          <p className="text-sm text-muted">{card.typeText}</p>
         </div>
 
-        {/* Stat strip */}
         <div className="grid grid-cols-3 gap-2">
-          <StatBox label="Pitch" value={card.pitch} />
-          <StatBox label="Cost" value={card.cost} />
-          {isHero ? (
+          <StatBox label="Pitch" value={card.pitch !== null ? String(card.pitch) : "—"} />
+          <StatBox label="Cost" value={statDisplay(card.cost, card.costText)} />
+          {card.isHero ? (
             <>
-              <StatBox label="Life" value={card.health} />
-              <StatBox label="Intellect" value={card.intellect} />
+              <StatBox label="Life" value={statDisplay(card.health, null)} />
+              <StatBox label="Intellect" value={statDisplay(card.intellect, null)} />
             </>
           ) : (
             <>
-              <StatBox label="Power" value={card.power} />
-              <StatBox label="Defense" value={card.defense} />
+              <StatBox label="Power" value={statDisplay(card.power, card.powerText)} />
+              <StatBox label="Defense" value={statDisplay(card.defense, card.defenseText)} />
             </>
+          )}
+          {card.arcane !== null && (
+            <StatBox label="Arcane" value={String(card.arcane)} />
           )}
         </div>
 
         {card.keywords.length > 0 && (
           <ChipRow label="Keywords" items={card.keywords} />
         )}
-        {card.classes.length > 0 && (
-          <ChipRow label="Class" items={card.classes} />
-        )}
-        {card.talents.length > 0 && (
-          <ChipRow label="Talent" items={card.talents} />
-        )}
+        {card.traits.length > 0 && <ChipRow label="Traits" items={card.traits} />}
+        {card.types.length > 0 && <ChipRow label="Types" items={card.types} />}
 
-        {card.text && (
+        {card.functionalText && (
           <div>
             <SectionLabel>Card Text</SectionLabel>
             <p className="whitespace-pre-line rounded-lg border border-border bg-surface-2 p-3 text-sm leading-relaxed text-gray-200">
-              {card.text}
+              {card.functionalText}
             </p>
           </div>
         )}
 
-        {card.flavor && (
+        {flavor && (
           <p className="border-l-2 border-border pl-3 text-sm italic text-muted">
-            {card.flavor}
+            {flavor}
           </p>
         )}
 
-        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
-          <span
-            className="rounded px-1.5 py-0.5 font-medium"
-            style={{
-              color: RARITY_COLOR[card.rarity],
-              background: `${RARITY_COLOR[card.rarity]}1a`,
-            }}
-          >
-            {rarityLabel(card.rarity)}
-          </span>
-          <span>
-            {card.setName} ({card.setCode}) · #{card.cardNumber}
-          </span>
-          {card.artist && <span>Art: {card.artist}</span>}
+        {/* Printings */}
+        <div>
+          <SectionLabel>
+            Printings{card.printings.length > 1 ? ` (${card.printings.length})` : ""}
+          </SectionLabel>
+          <div className="flex flex-col gap-1.5">
+            {card.printings.map((p, i) => (
+              <div
+                key={`${p.id}-${i}`}
+                className="flex items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-xs"
+              >
+                <div className="min-w-0">
+                  <div className="truncate text-gray-200">{p.setName}</div>
+                  <div className="text-muted">
+                    {p.id}
+                    {p.artists.length > 0 && ` · ${p.artists.join(", ")}`}
+                  </div>
+                </div>
+                <span
+                  className="ml-2 shrink-0 rounded px-1.5 py-0.5 font-medium"
+                  style={{ color: rarityColor(p.rarity), background: `${rarityColor(p.rarity)}1a` }}
+                >
+                  {p.rarity}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function CardImage({ card }: { card: Card }) {
+  const [imgOk, setImgOk] = useState(true);
+  if (card.imageUrl && imgOk) {
+    return (
+      <img
+        src={card.imageUrl}
+        alt={card.name}
+        onError={() => setImgOk(false)}
+        className="mx-auto w-full max-w-[280px] rounded-2xl"
+      />
+    );
+  }
+  // Fallback when no image is available.
+  const accent = pitchColor(card.color);
+  return (
+    <div
+      className="mx-auto flex aspect-[2.5/3.5] w-full max-w-[280px] flex-col items-center justify-center rounded-2xl border border-border bg-surface-2 p-4 text-center"
+      style={{ boxShadow: `inset 0 0 0 3px ${accent}` }}
+    >
+      <h2 className="text-xl font-bold text-white">{card.name}</h2>
+      <p className="mt-2 text-xs text-muted">{card.typeText}</p>
     </div>
   );
 }
@@ -147,13 +136,11 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function StatBox({ label, value }: { label: string; value: number | null }) {
+function StatBox({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-border bg-surface-2 p-2 text-center">
-      <div className="text-lg font-bold text-white">{value ?? "—"}</div>
-      <div className="text-[10px] uppercase tracking-wide text-muted">
-        {label}
-      </div>
+      <div className="text-lg font-bold text-white">{value}</div>
+      <div className="text-[10px] uppercase tracking-wide text-muted">{label}</div>
     </div>
   );
 }

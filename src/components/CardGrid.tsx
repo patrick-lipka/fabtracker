@@ -9,27 +9,48 @@ interface CardGridProps {
   onSelect: (card: Card) => void;
 }
 
-const MIN_TILE_WIDTH = 190; // px; columns are derived from container width
-const ROW_HEIGHT = 250; // matches CardTile height
+const MIN_TILE_WIDTH = 188; // px; columns are derived from container width
 const GAP = 14;
+const PADDING_X = 16; // matches the container's px-4
+/** FaB cards are 2.5" × 3.5" → height = width × 1.4. */
+const CARD_ASPECT = 3.5 / 2.5;
+
+interface Layout {
+  columns: number;
+  rowHeight: number; // derived from actual tile width to keep card aspect
+}
 
 /**
- * Responsive, row-virtualized card grid. Only the rows currently in view are
- * mounted, so this stays smooth even with thousands of cards. Columns are
- * recomputed from the container width via a ResizeObserver.
+ * Responsive, row-virtualized card grid. Columns AND row height are recomputed
+ * from the container width (via a ResizeObserver) so tiles always keep the FaB
+ * card aspect ratio as the window resizes. Only on-screen rows are mounted, so
+ * this stays smooth across thousands of cards.
  */
 export function CardGrid({ cards, selectedId, onSelect }: CardGridProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [columns, setColumns] = useState(1);
+  const [layout, setLayout] = useState<Layout>({
+    columns: 1,
+    rowHeight: Math.round(MIN_TILE_WIDTH * CARD_ASPECT),
+  });
 
-  // Recompute column count whenever the scroll container resizes.
+  // Recompute layout whenever the scroll container resizes.
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     const update = () => {
-      const width = el.clientWidth;
-      const cols = Math.max(1, Math.floor((width + GAP) / (MIN_TILE_WIDTH + GAP)));
-      setColumns(cols);
+      const content = el.clientWidth - PADDING_X * 2;
+      if (content <= 0) return;
+      const columns = Math.max(
+        1,
+        Math.floor((content + GAP) / (MIN_TILE_WIDTH + GAP)),
+      );
+      const tileWidth = (content - (columns - 1) * GAP) / columns;
+      const rowHeight = Math.round(tileWidth * CARD_ASPECT);
+      setLayout((prev) =>
+        prev.columns === columns && prev.rowHeight === rowHeight
+          ? prev
+          : { columns, rowHeight },
+      );
     };
     update();
     const ro = new ResizeObserver(update);
@@ -37,14 +58,20 @@ export function CardGrid({ cards, selectedId, onSelect }: CardGridProps) {
     return () => ro.disconnect();
   }, []);
 
+  const { columns, rowHeight } = layout;
   const rowCount = Math.ceil(cards.length / columns);
 
   const rowVirtualizer = useVirtualizer({
     count: rowCount,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => ROW_HEIGHT + GAP,
+    estimateSize: () => rowHeight + GAP,
     overscan: 4,
   });
+
+  // Row height changes with the window width — re-measure so positions update.
+  useEffect(() => {
+    rowVirtualizer.measure();
+  }, [rowHeight, rowVirtualizer]);
 
   if (cards.length === 0) {
     return (
@@ -68,6 +95,7 @@ export function CardGrid({ cards, selectedId, onSelect }: CardGridProps) {
               className="absolute left-0 top-0 grid w-full"
               style={{
                 transform: `translateY(${virtualRow.start}px)`,
+                height: rowHeight,
                 gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
                 gap: GAP,
               }}

@@ -1,29 +1,47 @@
 //! FaB Tracker — Tauri backend entry point.
 //!
-//! For now the only command is `get_cards`, which serves a bundled mock card
-//! catalog. Later this is where the local SQLite DB, the official-data sync,
-//! and the search index will live (see `docs/PROJECT_LOG.md`).
+//! Commands:
+//! - `get_cards`  — return the locally cached catalog (empty if never synced).
+//! - `sync_cards` — download the latest catalog from the data source and cache it.
+//!
+//! Later this is where the SQLite DB, the collection, and the search index live
+//! (see `docs/PROJECT_LOG.md`).
 
 mod card;
+mod catalog;
+
+use std::path::PathBuf;
 
 use card::Card;
+use tauri::{AppHandle, Manager};
 
-/// The mock catalog is compiled into the binary so the app runs fully offline
-/// with zero setup. Swapping this for real data is a localized change.
-const MOCK_CARDS_JSON: &str = include_str!("../data/mock_cards.json");
+/// Where downloaded catalog files are cached on disk.
+fn cache_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    app.path()
+        .app_cache_dir()
+        .map_err(|e| format!("could not resolve cache dir: {e}"))
+}
 
-/// Return the full card catalog.
+/// Return the cached catalog. Empty vec means "not synced yet" — the frontend
+/// uses that to prompt the user to download.
 #[tauri::command]
-fn get_cards() -> Result<Vec<Card>, String> {
-    serde_json::from_str(MOCK_CARDS_JSON)
-        .map_err(|e| format!("failed to parse mock card data: {e}"))
+fn get_cards(app: AppHandle) -> Result<Vec<Card>, String> {
+    let dir = cache_dir(&app)?;
+    Ok(catalog::load_cached(&dir)?.unwrap_or_default())
+}
+
+/// Download the latest catalog, cache it, and return the parsed cards.
+#[tauri::command]
+async fn sync_cards(app: AppHandle) -> Result<Vec<Card>, String> {
+    let dir = cache_dir(&app)?;
+    catalog::sync(&dir).await
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![get_cards])
+        .invoke_handler(tauri::generate_handler![get_cards, sync_cards])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

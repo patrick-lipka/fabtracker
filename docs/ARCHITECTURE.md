@@ -74,10 +74,36 @@ are `Option` where the game makes them optional (a Hero has `health`/`intellect`
 but no `pitch`/`cost`; an attack has `power`/`pitch`/`cost` but no `health`).
 When we ingest real data later, we map that source into this model in one place.
 
-Currently the catalog is a JSON file (`src-tauri/data/mock_cards.json`) compiled
-into the binary via `include_str!` and served by the `get_cards` command. This is
-deliberately the same *shape* we expect real data to arrive in (JSON), so the
-swap is localized to "where the bytes come from".
+## Card data: source, sync & caching
+
+The catalog comes from the community-maintained
+[the-fab-cube/flesh-and-blood-cards](https://github.com/the-fab-cube/flesh-and-blood-cards)
+dataset (English) — `card.json` (the cards, ~4285 of them) plus `set.json` (set
+names). It carries official LSS card image URLs.
+
+**We deliberately do not vendor this data into the repo.** It has no license and
+the card data/images are Legend Story Studios IP. Instead the Rust backend
+(`catalog.rs`) downloads it at runtime into the OS app-cache dir
+(`AppHandle::path().app_cache_dir()`) and parses it from there. This keeps the
+repo lean, respects the IP, and directly realizes the "pull from official
+servers" goal.
+
+- `sync_cards` (async command) — downloads + caches + parses, returns the cards.
+- `get_cards` (command) — returns the parsed cache, or an empty list if nothing
+  has been synced yet (the frontend uses that to show a one-time download prompt).
+- `catalog.rs` owns the *source* schema (`Raw*` structs) and maps it into our
+  domain `Card`/`Printing` model in one place — `parse_catalog` / `map_card`.
+  Source quirks handled here: stats are strings that may be `""`/`*`/`X`/`XX`
+  (parsed to a number when possible, raw text kept as a fallback), printings are
+  denormalized (we resolve set names + rarity shortcodes and pick a
+  representative image), and the dataset ref is pinned via `DATA_REF`.
+
+> **Scalability note:** today the whole catalog is parsed on each launch and sent
+> over IPC in one shot. Fine at a few thousand cards; the planned SQLite step
+> moves storage + querying into Rust so we page/filter there instead.
+
+> **CSP:** `tauri.conf.json` has `csp: null` so remote images load during
+> development. Set a real CSP (or cache images locally) before shipping.
 
 ## Frontend structure
 
