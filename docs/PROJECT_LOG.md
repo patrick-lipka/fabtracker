@@ -7,6 +7,26 @@ The roadmap below it is the north star; the original vision follows.
 
 ## Log
 
+### 2026-05-31 — Step 5: collection management with binders ✅
+- DB migration v2 adds `binders` and `collection_entries` (PK binder_id+card_id,
+  quantity), with a seeded "Main" binder. Applied cleanly to the existing v1 DB.
+- New `collection.rs`: binders CRUD, `adjust_card` (delta, deletes at 0),
+  `move_card` (atomic, between binders), `get_collection(binderId?)` (aggregates
+  across binders for "All"), `card_binders` (per-binder quantities for a card),
+  `owned_counts`. Commands wired in `lib.rs`. Tests cover add/move/aggregate +
+  cascade-on-delete.
+- Model (v1): cards tracked by unique id with a quantity; a card can live in
+  several binders. **Deferred:** per-printing / foiling granularity, and a
+  `have:` search filter.
+- Frontend: **Browse / Collection** tab toggle. Collection view has a binder bar
+  (All + binders + inline create/rename/delete). Grid tiles show an owned-qty
+  badge and a "+" / right-click binder menu (add, and in a binder: move all /
+  remove). Detail pane gained a Collection section with per-binder quantity
+  steppers (which also serves as the move UI). All mutations refresh via a
+  `collVersion` bump.
+- Verified: `cargo test --lib` (9 tests), `npm run build`, `tauri dev` with the
+  v2 migration applied to the real DB (binders table seeded, 4285 cards intact).
+
 ### 2026-05-30 — Clickable facets in the detail pane ✅
 - The card detail pane is now a set of clickable facets: types, keywords and
   traits (chips), the stat boxes (pitch/cost/power/defense/health/intellect/
@@ -105,8 +125,9 @@ Rough order; each is its own focused chunk of work.
 4. **Rich search syntax** — ✅ done. Query language parsed in Rust, run against
    SQLite (scalar columns + JSON functions). FTS5 for faster/fuzzier text search
    is a possible future optimization but not needed at this scale.
-5. **Collection management.** Track owned quantities (per edition/foiling), add
-   from sets, see totals/value. First real user-data tables in the DB.
+5. **Collection management** — ✅ done (v1). Binders, per-card quantities,
+   add/move/remove, owned badges. Follow-ups: per-printing/foiling granularity,
+   a `have:`/`binder:` search filter, set/value totals.
 6. **Deck building.** Build decks against a hero, validate legality (class,
    talent, card limits, format), show the curve/breakdown.
 7. **"Missing cards" view.** Diff a deck (or a precon) against the collection.

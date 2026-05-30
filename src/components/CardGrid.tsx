@@ -7,6 +7,10 @@ interface CardGridProps {
   cards: Card[];
   selectedId: string | null;
   onSelect: (card: Card) => void;
+  /** card id → owned quantity, for the badge. */
+  quantities?: Record<string, number>;
+  /** Open the binder menu for a card at screen coordinates. */
+  onCardMenu?: (card: Card, x: number, y: number) => void;
 }
 
 const MIN_TILE_WIDTH = 188; // px; columns are derived from container width
@@ -26,7 +30,13 @@ interface Layout {
  * card aspect ratio as the window resizes. Only on-screen rows are mounted, so
  * this stays smooth across thousands of cards.
  */
-export function CardGrid({ cards, selectedId, onSelect }: CardGridProps) {
+export function CardGrid({
+  cards,
+  selectedId,
+  onSelect,
+  quantities,
+  onCardMenu,
+}: CardGridProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [layout, setLayout] = useState<Layout>({
     columns: 1,
@@ -106,6 +116,8 @@ export function CardGrid({ cards, selectedId, onSelect }: CardGridProps) {
                   card={card}
                   selected={card.id === selectedId}
                   onSelect={onSelect}
+                  quantity={quantities?.[card.id]}
+                  onMenu={onCardMenu}
                 />
               ))}
             </div>

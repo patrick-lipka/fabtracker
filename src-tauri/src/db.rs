@@ -11,30 +11,52 @@ use rusqlite_migration::{Migrations, M};
 
 use crate::card::Card;
 
-const MIGRATIONS_SLICE: &[M<'static>] = &[M::up(
-    "CREATE TABLE cards (
-        id          TEXT PRIMARY KEY,
-        name        TEXT NOT NULL,
-        color       TEXT,
-        pitch       INTEGER,
-        cost        INTEGER,
-        power       INTEGER,
-        defense     INTEGER,
-        health      INTEGER,
-        intellect   INTEGER,
-        arcane      INTEGER,
-        is_hero     INTEGER NOT NULL,
-        type_text   TEXT NOT NULL,
-        rarity      TEXT NOT NULL,
-        data        TEXT NOT NULL
-     );
-     CREATE INDEX idx_cards_name ON cards(name);
+const MIGRATIONS_SLICE: &[M<'static>] = &[
+    // v1 — card catalog + meta.
+    M::up(
+        "CREATE TABLE cards (
+            id          TEXT PRIMARY KEY,
+            name        TEXT NOT NULL,
+            color       TEXT,
+            pitch       INTEGER,
+            cost        INTEGER,
+            power       INTEGER,
+            defense     INTEGER,
+            health      INTEGER,
+            intellect   INTEGER,
+            arcane      INTEGER,
+            is_hero     INTEGER NOT NULL,
+            type_text   TEXT NOT NULL,
+            rarity      TEXT NOT NULL,
+            data        TEXT NOT NULL
+         );
+         CREATE INDEX idx_cards_name ON cards(name);
 
-     CREATE TABLE meta (
-        key   TEXT PRIMARY KEY,
-        value TEXT NOT NULL
-     );",
-)];
+         CREATE TABLE meta (
+            key   TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+         );",
+    ),
+    // v2 — collection: binders and per-card quantities. A default binder is
+    // seeded so there's always somewhere to add cards.
+    M::up(
+        "CREATE TABLE binders (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            name        TEXT NOT NULL,
+            position    INTEGER NOT NULL DEFAULT 0,
+            created_at  INTEGER NOT NULL
+         );
+         INSERT INTO binders (name, position, created_at) VALUES ('Main', 0, 0);
+
+         CREATE TABLE collection_entries (
+            binder_id   INTEGER NOT NULL REFERENCES binders(id) ON DELETE CASCADE,
+            card_id     TEXT NOT NULL,
+            quantity    INTEGER NOT NULL DEFAULT 1,
+            PRIMARY KEY (binder_id, card_id)
+         );
+         CREATE INDEX idx_entries_card ON collection_entries(card_id);",
+    ),
+];
 
 const LAST_SYNCED_KEY: &str = "last_synced_ms";
 
@@ -47,7 +69,7 @@ pub fn open(path: &std::path::Path) -> Result<Connection, String> {
     Ok(conn)
 }
 
-fn run_migrations(conn: &mut Connection) -> Result<(), String> {
+pub(crate) fn run_migrations(conn: &mut Connection) -> Result<(), String> {
     Migrations::from_slice(MIGRATIONS_SLICE)
         .to_latest(conn)
         .map_err(|e| format!("run migrations: {e}"))

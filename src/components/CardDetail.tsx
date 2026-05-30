@@ -1,11 +1,15 @@
 import { useState } from "react";
-import type { Card } from "../types/card";
+import type { BinderEntry, Card } from "../types/card";
 import { pitchColor, rarityColor, statDisplay } from "../lib/fab";
 
 interface CardDetailProps {
   card: Card | null;
   /** Run a search query (clicking a facet populates the search box). */
   onSearch: (query: string) => void;
+  /** This card's quantity in every binder (drives the collection steppers). */
+  cardBinders: BinderEntry[];
+  /** Change this card's quantity in a binder by delta. */
+  onAdjustCard: (binderId: number, delta: number) => void;
 }
 
 /** Build a `field:value` search term, quoting the value if it has spaces. */
@@ -14,7 +18,12 @@ function facet(field: string, value: string): string {
 }
 
 /** Right-hand inspector showing the full details of the selected card. */
-export function CardDetail({ card, onSearch }: CardDetailProps) {
+export function CardDetail({
+  card,
+  onSearch,
+  cardBinders,
+  onAdjustCard,
+}: CardDetailProps) {
   if (!card) {
     return (
       <div className="flex h-full items-center justify-center p-8 text-center text-sm text-muted">
@@ -102,6 +111,43 @@ export function CardDetail({ card, onSearch }: CardDetailProps) {
           <ChipRow label="Types" items={card.types} field="t" onSearch={onSearch} />
         )}
 
+        {/* Collection — quantity of this card in each binder. */}
+        {cardBinders.length > 0 && (
+          <div>
+            <SectionLabel>Collection</SectionLabel>
+            <div className="flex flex-col gap-1.5">
+              {cardBinders.map((entry) => (
+                <div
+                  key={entry.binderId}
+                  className="flex items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-1.5"
+                >
+                  <span className="min-w-0 truncate text-sm text-gray-200">
+                    {entry.binderName}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Stepper
+                      label="−"
+                      disabled={entry.quantity === 0}
+                      onClick={() => onAdjustCard(entry.binderId, -1)}
+                    />
+                    <span
+                      className={`w-6 text-center text-sm font-bold ${
+                        entry.quantity > 0 ? "text-white" : "text-muted"
+                      }`}
+                    >
+                      {entry.quantity}
+                    </span>
+                    <Stepper
+                      label="+"
+                      onClick={() => onAdjustCard(entry.binderId, 1)}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {card.functionalText && (
           <div>
             <SectionLabel>Card Text</SectionLabel>
@@ -179,6 +225,27 @@ function CardImage({ card }: { card: Card }) {
       <h2 className="text-xl font-bold text-white">{card.name}</h2>
       <p className="mt-2 text-xs text-muted">{card.typeText}</p>
     </div>
+  );
+}
+
+function Stepper({
+  label,
+  onClick,
+  disabled,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="flex h-6 w-6 items-center justify-center rounded-md border border-border bg-surface text-sm text-gray-200 hover:border-accent hover:text-white disabled:opacity-30 disabled:hover:border-border disabled:hover:text-gray-200"
+    >
+      {label}
+    </button>
   );
 }
 

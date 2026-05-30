@@ -46,3 +46,29 @@ export interface Card {
 
   printings: Printing[];
 }
+
+// --- Collection -------------------------------------------------------------
+
+export interface Binder {
+  id: number;
+  name: string;
+  position: number;
+  cardCount: number;
+  totalQuantity: number;
+}
+
+/** A card's quantity in one binder (0 ⇒ not in that binder). */
+export interface BinderEntry {
+  binderId: number;
+  binderName: string;
+  quantity: number;
+}
+
+/** A collected card together with how many are owned (within scope). */
+export interface CollectionCard {
+  card: Card;
+  quantity: number;
+}
+
+/** Map of card id → total owned quantity across all binders. */
+export type OwnedCounts = Record<string, number>;

@@ -137,6 +137,30 @@ already-loaded full list, so there's no round-trip while idle.
 > moves are paging results and adding an FTS5 index for text search — both reuse
 > the structure already in place.
 
+## Collection (binders)
+
+`collection.rs` owns the user's collection. Two tables (migration v2):
+`binders` and `collection_entries` (PK `binder_id` + `card_id`, with a
+`quantity`). A default "Main" binder is seeded.
+
+Model (v1): a card is tracked by its **unique card id** with a quantity, and may
+live in several binders. "All collection" aggregates quantities across binders;
+**moving** shifts quantity from one binder to another (`move_card`, atomic).
+Deleting a binder cascades to its entries (FK `ON DELETE CASCADE`, with the
+`foreign_keys` pragma on). Per-printing / foiling granularity is a deliberate
+future refinement — the current model keeps the UI simple and matches "move
+cards between binders".
+
+Commands: binder CRUD, `get_collection(binderId?)`, `card_binders(cardId)` (a
+card's quantity in every binder — drives the detail steppers), `adjust_card`
+(delta; row removed at 0), `move_card`, and `owned_counts` (card id → total, for
+grid badges).
+
+On the frontend, a **Browse / Collection** view toggle in `App` switches the
+grid's data source; mutations bump a `collVersion` counter that the binder /
+collection / owned-count / detail effects depend on, so everything refreshes
+consistently from one place.
+
 > **CSP:** `tauri.conf.json` has `csp: null` so remote images load during
 > development. Set a real CSP (or cache images locally) before shipping.
 

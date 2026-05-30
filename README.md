@@ -3,8 +3,8 @@
 A local-first, self-hostable collection & deck manager for **Flesh and Blood** —
 think Moxfield, but native-fast and offline-capable.
 
-> **Status:** Step 4 — browse, inspect, and **search** the full real card pool
-> (persisted in local SQLite). See [`docs/PROJECT_LOG.md`](docs/PROJECT_LOG.md)
+> **Status:** Step 5 — browse, search, and build a **collection** organized into
+> binders (all in local SQLite). See [`docs/PROJECT_LOG.md`](docs/PROJECT_LOG.md)
 > for the roadmap and where we are.
 
 ## What it does today
@@ -23,6 +23,11 @@ think Moxfield, but native-fast and offline-capable.
   `c:ninja pitch:1 pow>=4`, `kw:dominate cost<=2`, `set:wtr t:hero`,
   `name:"command and conquer"`. A "?" popover documents the syntax. Bare words
   match name + type + rules text.
+- **Collection in binders.** A Browse / Collection toggle; organize owned cards
+  into binders (create/rename/delete), with owned-quantity badges. Add a card to
+  a binder from the grid ("+" on hover or right-click) or via per-binder
+  steppers in the detail pane; move cards between binders from either place.
+  "All" aggregates across binders.
 
 ### Where the data comes from
 
@@ -81,7 +86,7 @@ npm run tauri build    # produce a distributable desktop binary
 ```
 fabtracker/
 ├── src/                      # React + TypeScript frontend
-│   ├── components/           # CardGrid, CardTile, CardDetail, SearchBar
+│   ├── components/           # CardGrid, CardTile, CardDetail, SearchBar, BinderBar, BinderMenu
 │   ├── lib/                  # api.ts (Tauri IPC), fab.ts (display helpers)
 │   ├── types/card.ts         # Card type — mirror of the Rust model
 │   └── App.tsx               # layout + state
@@ -90,6 +95,7 @@ fabtracker/
 │   ├── src/catalog.rs        # download + parse official data (fetch_catalog)
 │   ├── src/db.rs             # SQLite persistence (migrations, store/load/search)
 │   ├── src/search.rs         # query language → parameterized SQL WHERE
+│   ├── src/collection.rs     # binders + per-card quantities
 │   └── src/lib.rs            # Tauri app + commands (get_cards, search_cards, …)
 └── docs/
     ├── ARCHITECTURE.md       # decisions & rationale

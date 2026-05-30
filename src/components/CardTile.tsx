@@ -6,13 +6,17 @@ interface CardTileProps {
   card: Card;
   selected: boolean;
   onSelect: (card: Card) => void;
+  /** Owned quantity badge (omitted/0 ⇒ no badge). */
+  quantity?: number;
+  /** Open the binder menu at the given screen coordinates. */
+  onMenu?: (card: Card, x: number, y: number) => void;
 }
 
 /**
  * A single card in the grid. Shows the real card image when available; while it
  * loads (or if it's missing/fails) a styled placeholder frame is shown instead.
  */
-export function CardTile({ card, selected, onSelect }: CardTileProps) {
+export function CardTile({ card, selected, onSelect, quantity, onMenu }: CardTileProps) {
   const [imgOk, setImgOk] = useState(true);
   const showImage = card.imageUrl && imgOk;
 
@@ -20,6 +24,14 @@ export function CardTile({ card, selected, onSelect }: CardTileProps) {
     <button
       type="button"
       onClick={() => onSelect(card)}
+      onContextMenu={
+        onMenu
+          ? (e) => {
+              e.preventDefault();
+              onMenu(card, e.clientX, e.clientY);
+            }
+          : undefined
+      }
       title={card.name}
       className={`group relative block h-full w-full overflow-hidden rounded-xl border bg-surface-2 transition
         hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/40
@@ -36,6 +48,28 @@ export function CardTile({ card, selected, onSelect }: CardTileProps) {
           onError={() => setImgOk(false)}
           className="absolute inset-0 h-full w-full object-cover object-top"
         />
+      )}
+
+      {quantity ? (
+        <span className="absolute left-1.5 top-1.5 z-10 rounded-md bg-black/75 px-1.5 py-0.5 text-xs font-bold text-amber-200 ring-1 ring-white/10">
+          ×{quantity}
+        </span>
+      ) : null}
+
+      {onMenu && (
+        <span
+          role="button"
+          tabIndex={-1}
+          title="Add / move to binder"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onMenu(card, e.clientX, e.clientY);
+          }}
+          className="absolute right-1.5 top-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-md bg-black/75 text-sm text-white opacity-0 ring-1 ring-white/10 transition group-hover:opacity-100 hover:bg-accent hover:text-black"
+        >
+          +
+        </span>
       )}
     </button>
   );
