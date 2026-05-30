@@ -7,6 +7,25 @@ The roadmap below it is the north star; the original vision follows.
 
 ## Log
 
+### 2026-05-30 — Step 3: SQLite persistence ✅
+- Added `rusqlite` (bundled — no system SQLite dep) + `rusqlite_migration`.
+- New `db.rs`: opens `fabtracker.db` in the OS **app-data** dir (persistent,
+  distinct from the re-downloadable cache), runs ordered migrations, and
+  stores/loads cards. Storage strategy: indexed scalar columns (name, pitch,
+  cost, power, …) **plus a `data` JSON column** holding the full `Card` — cheap
+  full reconstruction now, SQL filtering when richer search lands. A `meta`
+  table tracks `last_synced`.
+- `catalog.rs` slimmed to fetch+parse only (`fetch_catalog`); file caching
+  removed — the DB is now the single source of truth.
+- The connection is opened once in `setup` and shared via Tauri managed state
+  (`Mutex<Connection>`); `sync_cards` downloads then replaces the table in one
+  transaction (no DB lock held across the network await). `get_cards` now reads
+  the DB instead of re-parsing 20 MB of JSON on every launch.
+- New `get_catalog_info` command + a "Synced …" indicator in the header.
+- Verified: `cargo test --lib` (DB round-trip + meta), `cargo test -- --ignored`
+  (real network fetch), `npm run build`, and `tauri dev` loading 4285 cards from
+  SQLite.
+
 ### 2026-05-30 — Step 2: real card data ✅
 - Source: the community [the-fab-cube/flesh-and-blood-cards](https://github.com/the-fab-cube/flesh-and-blood-cards)
   dataset (English, `develop` ref) — `card.json` (~20 MB, **4285 unique cards**)
@@ -51,14 +70,14 @@ Rough order; each is its own focused chunk of work.
 1. **Card browser (mock data)** — ✅ done. Browse + inspect.
 2. **Real card data** — ✅ done. Runtime download + cache + parse of the
    the-fab-cube dataset (4285 cards), real images, first-run sync flow.
-3. **Local persistence.** SQLite in the Rust core (e.g. `sqlx`/`rusqlite`) for
-   the card catalog + the user's collection. Migrations. This unlocks fast
-   queries and offline-by-default. Currently the full catalog is parsed from the
-   cached JSON on every launch and sent over IPC in one shot — fine at 4285
-   cards, but SQLite + querying/paging in Rust is the next scalability step.
+3. **Local persistence** — ✅ done. SQLite (`rusqlite`) in the app-data dir,
+   migrations, catalog stored as indexed columns + JSON. Collection/decks will
+   add tables here. (Still sent to the frontend in one shot — paging/filtering
+   in SQL comes with the search step.)
 4. **Rich search syntax.** Grow `SearchBar` into a real query language
-   (`c:ninja pitch:1 pow>=4 set:wtr`). Parse in Rust against the DB / an index;
-   keep the current substring search as the fallback.
+   (`c:ninja pitch:1 pow>=4 set:wtr`). Parse in Rust and query the DB (the
+   indexed columns are already there; add FTS5 for text). Keep the current
+   substring search as the fallback.
 5. **Collection management.** Track owned quantities (per edition/foiling), add
    from sets, see totals/value.
 6. **Deck building.** Build decks against a hero, validate legality (class,

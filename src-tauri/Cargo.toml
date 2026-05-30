@@ -25,6 +25,10 @@ serde_json = "1"
 # HTTP client for syncing official card data. rustls avoids a system OpenSSL
 # dependency (cross-platform friendliness); gzip shrinks the ~20MB download.
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "gzip"] }
+# Local persistence. `bundled` compiles SQLite in, so there's no system
+# dependency. rusqlite_migration runs ordered, idempotent schema migrations.
+rusqlite = { version = "0.40.0", features = ["bundled"] }
+rusqlite_migration = "2.6.0"
 
 [dev-dependencies]
 # For the network-gated catalog integration test (cargo test -- --ignored).

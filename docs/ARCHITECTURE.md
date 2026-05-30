@@ -83,14 +83,16 @@ names). It carries official LSS card image URLs.
 
 **We deliberately do not vendor this data into the repo.** It has no license and
 the card data/images are Legend Story Studios IP. Instead the Rust backend
-(`catalog.rs`) downloads it at runtime into the OS app-cache dir
-(`AppHandle::path().app_cache_dir()`) and parses it from there. This keeps the
-repo lean, respects the IP, and directly realizes the "pull from official
-servers" goal.
+(`catalog.rs`) downloads it at runtime, parses it, and persists it locally
+(`db.rs`). This keeps the repo lean, respects the IP, and directly realizes the
+"pull from official servers" goal.
 
-- `sync_cards` (async command) — downloads + caches + parses, returns the cards.
-- `get_cards` (command) — returns the parsed cache, or an empty list if nothing
-  has been synced yet (the frontend uses that to show a one-time download prompt).
+- `sync_cards` (async command) — downloads + parses, then replaces the DB copy
+  in one transaction. Returns the cards. The DB lock is **not** held across the
+  network await.
+- `get_cards` (command) — reads the catalog from the DB (empty list ⇒ nothing
+  synced yet, which the frontend uses to show a one-time download prompt).
+- `get_catalog_info` (command) — card count + last-synced timestamp.
 - `catalog.rs` owns the *source* schema (`Raw*` structs) and maps it into our
   domain `Card`/`Printing` model in one place — `parse_catalog` / `map_card`.
   Source quirks handled here: stats are strings that may be `""`/`*`/`X`/`XX`
@@ -98,9 +100,25 @@ servers" goal.
   denormalized (we resolve set names + rarity shortcodes and pick a
   representative image), and the dataset ref is pinned via `DATA_REF`.
 
-> **Scalability note:** today the whole catalog is parsed on each launch and sent
-> over IPC in one shot. Fine at a few thousand cards; the planned SQLite step
-> moves storage + querying into Rust so we page/filter there instead.
+## Persistence (SQLite)
+
+`db.rs` opens `fabtracker.db` in the OS **app-data** dir
+(`AppHandle::path().app_data_dir()`) — persistent, distinct from the
+re-downloadable cache. The connection is opened once in Tauri's `setup` and
+shared as managed state (`Mutex<Connection>`; queries are short, so a single
+guarded connection is plenty for a desktop app). Schema changes go through
+ordered `rusqlite_migration` migrations.
+
+**Storage strategy — document + indexed columns.** Each card is stored as its
+full JSON in a `data` column, alongside indexed scalar columns (`name`, `pitch`,
+`cost`, `power`, `type_text`, `rarity`, …). That gives cheap full reconstruction
+today and SQL filtering once the rich search lands — without locking in a rigid
+relational schema prematurely. The collection and decks will add their own
+tables here.
+
+> **Scalability note:** the catalog is still sent to the frontend in one shot on
+> load (fine at ~4285 cards). Paging/filtering in SQL — and likely FTS5 for text
+> search — arrives with the rich-search step, reusing the indexed columns above.
 
 > **CSP:** `tauri.conf.json` has `csp: null` so remote images load during
 > development. Set a real CSP (or cache images locally) before shipping.

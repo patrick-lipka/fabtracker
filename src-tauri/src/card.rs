@@ -7,10 +7,10 @@
 //! Serialized to the frontend as camelCase JSON; mirrored by the TypeScript
 //! `Card` type in `src/types/card.ts`.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// One physical printing of a card (a given set / edition / foiling / art).
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Printing {
     /// Collector id, e.g. "MST131".
@@ -30,7 +30,7 @@ pub struct Printing {
 /// printed text (`costText`/...), because FaB stats can be `*`, `X`, `XX`, etc.
 /// `None` parsed value + `Some` text means "non-numeric"; both `None` means the
 /// stat is absent for this card.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Card {
     /// Stable unique id from the data source (a UUID-like string).

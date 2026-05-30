@@ -24,10 +24,15 @@ Requires Rust ≥ 1.85 (`rustup update stable`) and Node ≥ 20.
   hand-mirrored in `src/types/card.ts` (Rust serializes camelCase). Keep them in
   sync; if it churns, switch to generating the TS (`ts-rs`).
 - Card data is downloaded at runtime by `src-tauri/src/catalog.rs` (the
-  the-fab-cube dataset) into the OS app-cache dir — never committed. `get_cards`
-  reads the cache; `sync_cards` downloads. Source-schema mapping lives only in
-  `catalog.rs`.
-- Network-gated backend test: `cd src-tauri && cargo test -- --ignored`.
+  the-fab-cube dataset) — never committed. Source-schema mapping lives only in
+  `catalog.rs` (`fetch_catalog`).
+- Persistence: `src-tauri/src/db.rs` — SQLite (`fabtracker.db` in the app-data
+  dir), opened once in `setup`, shared as `Mutex<Connection>` managed state.
+  Cards stored as indexed columns + a `data` JSON blob; schema via
+  `rusqlite_migration`. `get_cards` reads the DB; `sync_cards` downloads +
+  replaces it; `get_catalog_info` returns count + last-synced.
+- Backend tests: `cd src-tauri && cargo test --lib` (DB round-trip; no network).
+  The real network fetch test is `#[ignore]`d: `cargo test -- --ignored`.
 
 ## House style
 - Match the surrounding code's idiom and comment density.

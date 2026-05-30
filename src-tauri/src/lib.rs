@@ -1,47 +1,88 @@
 //! FaB Tracker — Tauri backend entry point.
 //!
-//! Commands:
-//! - `get_cards`  — return the locally cached catalog (empty if never synced).
-//! - `sync_cards` — download the latest catalog from the data source and cache it.
+//! Persistence lives in SQLite (`db.rs`), opened once at startup and shared via
+//! Tauri managed state. Commands:
+//! - `get_cards`        — read the cached catalog from the DB.
+//! - `sync_cards`       — download the latest catalog and replace the DB copy.
+//! - `get_catalog_info` — card count + last-synced timestamp.
 //!
-//! Later this is where the SQLite DB, the collection, and the search index live
-//! (see `docs/PROJECT_LOG.md`).
+//! Next: the collection + decks build on the same DB (see `docs/PROJECT_LOG.md`).
 
 mod card;
 mod catalog;
+mod db;
 
-use std::path::PathBuf;
+use std::sync::Mutex;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use card::Card;
-use tauri::{AppHandle, Manager};
+use rusqlite::Connection;
+use serde::Serialize;
+use tauri::{Manager, State};
 
-/// Where downloaded catalog files are cached on disk.
-fn cache_dir(app: &AppHandle) -> Result<PathBuf, String> {
-    app.path()
-        .app_cache_dir()
-        .map_err(|e| format!("could not resolve cache dir: {e}"))
+/// The single shared SQLite connection, guarded by a mutex (queries are short).
+type Db = Mutex<Connection>;
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CatalogInfo {
+    count: i64,
+    /// Unix epoch milliseconds of the last successful sync, if any.
+    last_synced: Option<i64>,
 }
 
-/// Return the cached catalog. Empty vec means "not synced yet" — the frontend
-/// uses that to prompt the user to download.
+/// Read the cached catalog from the database (empty ⇒ not synced yet).
 #[tauri::command]
-fn get_cards(app: AppHandle) -> Result<Vec<Card>, String> {
-    let dir = cache_dir(&app)?;
-    Ok(catalog::load_cached(&dir)?.unwrap_or_default())
+fn get_cards(db: State<'_, Db>) -> Result<Vec<Card>, String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    db::load_cards(&conn)
 }
 
-/// Download the latest catalog, cache it, and return the parsed cards.
 #[tauri::command]
-async fn sync_cards(app: AppHandle) -> Result<Vec<Card>, String> {
-    let dir = cache_dir(&app)?;
-    catalog::sync(&dir).await
+fn get_catalog_info(db: State<'_, Db>) -> Result<CatalogInfo, String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    Ok(CatalogInfo {
+        count: db::card_count(&conn)?,
+        last_synced: db::get_last_synced(&conn)?,
+    })
+}
+
+/// Download the latest catalog, replace the DB copy, and return the cards.
+#[tauri::command]
+async fn sync_cards(db: State<'_, Db>) -> Result<Vec<Card>, String> {
+    // Network first — we deliberately don't hold the DB lock across the await.
+    let cards = catalog::fetch_catalog().await?;
+    let now_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0);
+    {
+        let mut conn = db.lock().map_err(|e| e.to_string())?;
+        db::replace_cards(&mut conn, &cards)?;
+        db::set_last_synced(&conn, now_ms)?;
+    }
+    Ok(cards)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![get_cards, sync_cards])
+        .setup(|app| {
+            let dir = app
+                .path()
+                .app_data_dir()
+                .expect("resolve app data dir");
+            std::fs::create_dir_all(&dir).expect("create app data dir");
+            let conn = db::open(&dir.join("fabtracker.db")).expect("open database");
+            app.manage(Mutex::new(conn));
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            get_cards,
+            sync_cards,
+            get_catalog_info
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

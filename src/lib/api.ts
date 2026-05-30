@@ -13,3 +13,14 @@ export function getCards(): Promise<Card[]> {
 export function syncCards(): Promise<Card[]> {
   return invoke<Card[]>("sync_cards");
 }
+
+export interface CatalogInfo {
+  count: number;
+  /** Unix epoch milliseconds of the last successful sync, or null. */
+  lastSynced: number | null;
+}
+
+/** Card count + last-synced timestamp from the local database. */
+export function getCatalogInfo(): Promise<CatalogInfo> {
+  return invoke<CatalogInfo>("get_catalog_info");
+}

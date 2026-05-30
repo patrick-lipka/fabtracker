@@ -1,16 +1,15 @@
-//! Fetching, caching, and parsing the official-ish card catalog.
+//! Fetching and parsing the official-ish card catalog.
 //!
 //! Source: the community-maintained the-fab-cube/flesh-and-blood-cards dataset
-//! (English). We download it at runtime into a local cache rather than vendoring
-//! it, since the card data and images are Legend Story Studios IP.
+//! (English). We download it at runtime rather than vendoring it, since the card
+//! data and images are Legend Story Studios IP. Persistence is handled by
+//! `db.rs`; this module only knows how to *fetch and parse*.
 //!
-//! This module knows about the *source* schema (the `Raw*` structs) and maps it
-//! into our domain `Card`/`Printing` model. Nothing outside here should need to
-//! know how the source is shaped.
+//! This module owns the *source* schema (the `Raw*` structs) and maps it into
+//! our domain `Card`/`Printing` model. Nothing outside here needs to know how
+//! the source is shaped.
 
 use std::collections::HashMap;
-use std::fs;
-use std::path::Path;
 
 use serde::Deserialize;
 
@@ -26,9 +25,6 @@ fn card_url() -> String {
 fn set_url() -> String {
     format!("https://raw.githubusercontent.com/the-fab-cube/flesh-and-blood-cards/{DATA_REF}/json/english/set.json")
 }
-
-const CARD_CACHE_FILE: &str = "card.json";
-const SET_CACHE_FILE: &str = "set.json";
 
 // --------------------------------------------------------------------------
 // Source schema (only the fields we consume).
@@ -90,24 +86,11 @@ struct RawSet {
 }
 
 // --------------------------------------------------------------------------
-// Public API (called from lib.rs commands).
+// Public API.
 // --------------------------------------------------------------------------
 
-/// Return the parsed catalog from the local cache, or `None` if not cached yet.
-pub fn load_cached(cache_dir: &Path) -> Result<Option<Vec<Card>>, String> {
-    let card_path = cache_dir.join(CARD_CACHE_FILE);
-    let set_path = cache_dir.join(SET_CACHE_FILE);
-    if !card_path.exists() {
-        return Ok(None);
-    }
-    let card_json = read(&card_path)?;
-    // The set file is a nicety; if it's missing we still parse with no names.
-    let set_json = read(&set_path).unwrap_or_else(|_| "[]".to_string());
-    parse_catalog(&card_json, &set_json).map(Some)
-}
-
-/// Download the catalog, write it to the cache, and return the parsed cards.
-pub async fn sync(cache_dir: &Path) -> Result<Vec<Card>, String> {
+/// Download the latest catalog from the data source and parse it into cards.
+pub async fn fetch_catalog() -> Result<Vec<Card>, String> {
     let client = reqwest::Client::builder()
         .user_agent("fabtracker/0.1 (+https://github.com/)")
         .build()
@@ -115,15 +98,7 @@ pub async fn sync(cache_dir: &Path) -> Result<Vec<Card>, String> {
 
     let card_json = fetch(&client, &card_url()).await?;
     let set_json = fetch(&client, &set_url()).await?;
-
-    fs::create_dir_all(cache_dir)
-        .map_err(|e| format!("failed to create cache dir: {e}"))?;
-    write(&cache_dir.join(CARD_CACHE_FILE), &card_json)?;
-    write(&cache_dir.join(SET_CACHE_FILE), &set_json)?;
-
-    let cards = parse_catalog(&card_json, &set_json)?;
-    eprintln!("[catalog] synced {} cards", cards.len());
-    Ok(cards)
+    parse_catalog(&card_json, &set_json)
 }
 
 // --------------------------------------------------------------------------
@@ -243,14 +218,6 @@ fn rarity_label(code: &str) -> &'static str {
     }
 }
 
-fn read(path: &Path) -> Result<String, String> {
-    fs::read_to_string(path).map_err(|e| format!("failed to read {}: {e}", path.display()))
-}
-
-fn write(path: &Path, contents: &str) -> Result<(), String> {
-    fs::write(path, contents).map_err(|e| format!("failed to write {}: {e}", path.display()))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -258,23 +225,15 @@ mod tests {
     /// Hits the network. Run explicitly: `cargo test -- --ignored`.
     #[tokio::test]
     #[ignore]
-    async fn sync_downloads_and_parses_real_catalog() {
-        let dir = tempfile::tempdir().unwrap();
-        let cards = sync(dir.path()).await.expect("sync should succeed");
-
-        // The full pool is several thousand unique cards.
+    async fn fetch_parses_real_catalog() {
+        let cards = fetch_catalog().await.expect("fetch should succeed");
         assert!(cards.len() > 1000, "expected a large catalog, got {}", cards.len());
 
-        // Spot-check a well-known card resolves with sensible fields.
         let katsu = cards
             .iter()
             .find(|c| c.name == "Katsu, the Wanderer")
             .expect("Katsu should be present");
         assert!(katsu.is_hero);
         assert!(!katsu.printings.is_empty());
-
-        // Re-reading from cache should yield the same count.
-        let cached = load_cached(dir.path()).unwrap().unwrap();
-        assert_eq!(cached.len(), cards.len());
     }
 }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Card } from "./types/card";
-import { getCards, syncCards } from "./lib/api";
+import { getCards, syncCards, getCatalogInfo } from "./lib/api";
 import { searchText } from "./lib/fab";
 import { CardGrid } from "./components/CardGrid";
 import { CardDetail } from "./components/CardDetail";
@@ -15,6 +15,13 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [lastSynced, setLastSynced] = useState<number | null>(null);
+
+  function refreshInfo() {
+    getCatalogInfo()
+      .then((info) => setLastSynced(info.lastSynced))
+      .catch(() => {});
+  }
 
   // On launch, load whatever is cached.
   useEffect(() => {
@@ -24,6 +31,7 @@ export default function App() {
           setCards(data);
           setSelectedId(data[0].id);
           setStatus("ready");
+          refreshInfo();
         } else {
           setStatus("empty");
         }
@@ -42,6 +50,7 @@ export default function App() {
       setCards(data);
       setSelectedId(data[0]?.id ?? null);
       setStatus(data.length > 0 ? "ready" : "empty");
+      refreshInfo();
     } catch (e) {
       setError(String(e));
       if (cards.length === 0) setStatus("error");
@@ -82,6 +91,11 @@ export default function App() {
                 totalCount={cards.length}
               />
             </div>
+            {lastSynced && (
+              <span className="whitespace-nowrap text-[11px] text-muted">
+                Synced {formatSynced(lastSynced)}
+              </span>
+            )}
             <button
               type="button"
               onClick={sync}
@@ -139,6 +153,16 @@ export default function App() {
       </div>
     </div>
   );
+}
+
+/** Compact, locale-aware "last synced" label. */
+function formatSynced(ms: number): string {
+  const date = new Date(ms);
+  const today = new Date();
+  const sameDay = date.toDateString() === today.toDateString();
+  return sameDay
+    ? date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
+    : date.toLocaleDateString();
 }
 
 function Centered({ children }: { children: React.ReactNode }) {

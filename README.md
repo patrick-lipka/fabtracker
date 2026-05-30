@@ -3,14 +3,16 @@
 A local-first, self-hostable collection & deck manager for **Flesh and Blood** —
 think Moxfield, but native-fast and offline-capable.
 
-> **Status:** Step 2 — browse & inspect the full, real card pool. See
-> [`docs/PROJECT_LOG.md`](docs/PROJECT_LOG.md) for the roadmap and where we are.
+> **Status:** Step 3 — browse & inspect the full real card pool, persisted in a
+> local SQLite database. See [`docs/PROJECT_LOG.md`](docs/PROJECT_LOG.md) for the
+> roadmap and where we are.
 
 ## What it does today
 
 - Downloads the **full real Flesh and Blood card catalog** (~4285 cards, with
-  official card images) on first run and caches it locally for offline use; a
-  "Re-sync" button refreshes it.
+  official card images) on first run and stores it in a local **SQLite**
+  database for instant, offline loading; a "Re-sync" button refreshes it, and
+  the header shows when it was last synced.
 - Displays the catalog in a responsive, virtualized grid with real card images
   (a styled frame is shown while images load or if one is missing).
 - Click any card to inspect full details (stats, type line, keywords, traits,
@@ -22,8 +24,8 @@ think Moxfield, but native-fast and offline-capable.
 The card data is fetched at runtime from the community-maintained
 [the-fab-cube/flesh-and-blood-cards](https://github.com/the-fab-cube/flesh-and-blood-cards)
 dataset (English). We **don't** vendor it into this repo — the data and images
-are Legend Story Studios IP — so the app downloads it into its local cache
-directory and parses it there. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+are Legend Story Studios IP — so the app downloads it and stores it in a local
+SQLite database. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Tech stack
 
@@ -65,8 +67,9 @@ npm run tauri build    # produce a distributable desktop binary
 > plain browser. Use `npm run tauri dev` to see real data.
 >
 > On first launch the app shows a **Download card data** button (one-time ~20 MB
-> fetch, then cached). The cache lives in the OS app-cache dir, e.g. on macOS
-> `~/Library/Caches/com.fabtracker.app/`.
+> fetch). It's stored in a SQLite database in the OS app-data dir, e.g. on macOS
+> `~/Library/Application Support/com.fabtracker.app/fabtracker.db`; later
+> launches load instantly from there.
 
 ## Project layout
 
@@ -79,8 +82,9 @@ fabtracker/
 │   └── App.tsx               # layout + state
 ├── src-tauri/                # Rust backend (Tauri)
 │   ├── src/card.rs           # Card domain model (Card + Printing)
-│   ├── src/catalog.rs        # download / cache / parse official data
-│   └── src/lib.rs            # Tauri app + commands (get_cards, sync_cards)
+│   ├── src/catalog.rs        # download + parse official data (fetch_catalog)
+│   ├── src/db.rs             # SQLite persistence (migrations, store/load)
+│   └── src/lib.rs            # Tauri app + commands (get_cards, sync_cards, …)
 └── docs/
     ├── ARCHITECTURE.md       # decisions & rationale
     └── PROJECT_LOG.md        # roadmap + running log to resume work
