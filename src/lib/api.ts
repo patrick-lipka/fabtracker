@@ -33,11 +33,33 @@ export interface CatalogInfo {
   count: number;
   /** Unix epoch milliseconds of the last successful sync, or null. */
   lastSynced: number | null;
+  /** Branch the cached catalog was synced from. */
+  branch: string | null;
+  /** Configured ref mode: "auto" or an explicit branch/tag/sha. */
+  mode: string;
 }
 
-/** Card count + last-synced timestamp from the local database. */
+/** Card count, last-synced timestamp, source branch + mode. */
 export function getCatalogInfo(): Promise<CatalogInfo> {
   return invoke<CatalogInfo>("get_catalog_info");
+}
+
+export interface UpdateInfo {
+  updateAvailable: boolean;
+  branch: string;
+  sha: string;
+  date: string;
+  currentSha: string | null;
+}
+
+/** Resolve the target ref and report whether it's newer than the last sync. */
+export function checkUpdates(): Promise<UpdateInfo> {
+  return invoke<UpdateInfo>("check_updates");
+}
+
+/** Set the data-source ref mode: "auto" or an explicit branch/tag/sha. */
+export function setDataRef(mode: string): Promise<void> {
+  return invoke("set_data_ref", { mode });
 }
 
 // --- Collection -------------------------------------------------------------

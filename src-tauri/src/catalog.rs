@@ -11,19 +11,23 @@
 
 use std::collections::HashMap;
 
+use serde::de::DeserializeOwned;
 use serde::Deserialize;
 
 use crate::card::{Card, Printing};
 
-/// Branch/ref of the dataset to pull. `develop` carries the freshest cards;
-/// pin to a release tag here if we ever want reproducibility over freshness.
-const DATA_REF: &str = "develop";
+const REPO: &str = "the-fab-cube/flesh-and-blood-cards";
 
-fn card_url() -> String {
-    format!("https://raw.githubusercontent.com/the-fab-cube/flesh-and-blood-cards/{DATA_REF}/json/english/card.json")
+fn raw_url(git_ref: &str, file: &str) -> String {
+    format!("https://raw.githubusercontent.com/{REPO}/{git_ref}/json/english/{file}")
 }
-fn set_url() -> String {
-    format!("https://raw.githubusercontent.com/the-fab-cube/flesh-and-blood-cards/{DATA_REF}/json/english/set.json")
+
+/// A resolved point in the dataset's history to sync from.
+#[derive(Debug, Clone)]
+pub struct RefInfo {
+    pub branch: String,
+    pub sha: String,
+    pub date: String,
 }
 
 // --------------------------------------------------------------------------
@@ -97,21 +101,100 @@ struct RawSetPrinting {
 // Public API.
 // --------------------------------------------------------------------------
 
-/// Download the latest catalog from the data source and parse it into cards.
-pub async fn fetch_catalog() -> Result<Vec<Card>, String> {
-    let client = reqwest::Client::builder()
-        .user_agent("fabtracker/0.1 (+https://github.com/)")
-        .build()
-        .map_err(|e| format!("failed to build HTTP client: {e}"))?;
+/// Resolve which ref to sync from. `mode` is either "auto" (pick the branch with
+/// the most recent commit across the whole repo — this follows the maintainer's
+/// active spoiler-season branch) or an explicit branch/tag/sha.
+pub async fn resolve_ref(mode: &str) -> Result<RefInfo, String> {
+    let client = build_client()?;
+    if mode.is_empty() || mode == "auto" {
+        let branches: Vec<GhBranch> =
+            gh_json(&client, &format!("https://api.github.com/repos/{REPO}/branches?per_page=100"))
+                .await?;
+        let mut best: Option<RefInfo> = None;
+        for b in branches {
+            let commit: GhCommit = gh_json(
+                &client,
+                &format!("https://api.github.com/repos/{REPO}/commits/{}", b.name),
+            )
+            .await?;
+            let info = RefInfo {
+                branch: b.name,
+                sha: commit.sha,
+                date: commit.commit.committer.date,
+            };
+            if best.as_ref().is_none_or(|cur| info.date > cur.date) {
+                best = Some(info);
+            }
+        }
+        best.ok_or_else(|| "no branches found in repo".to_string())
+    } else {
+        let commit: GhCommit = gh_json(
+            &client,
+            &format!("https://api.github.com/repos/{REPO}/commits/{mode}"),
+        )
+        .await?;
+        Ok(RefInfo {
+            branch: mode.to_string(),
+            sha: commit.sha,
+            date: commit.commit.committer.date,
+        })
+    }
+}
 
-    let card_json = fetch(&client, &card_url()).await?;
-    let set_json = fetch(&client, &set_url()).await?;
+/// Download and parse the catalog at a specific ref (branch/tag/sha).
+pub async fn fetch_catalog_at(git_ref: &str) -> Result<Vec<Card>, String> {
+    let client = build_client()?;
+    let card_json = fetch(&client, &raw_url(git_ref, "card.json")).await?;
+    let set_json = fetch(&client, &raw_url(git_ref, "set.json")).await?;
     parse_catalog(&card_json, &set_json)
 }
 
 // --------------------------------------------------------------------------
 // Internals.
 // --------------------------------------------------------------------------
+
+#[derive(Deserialize)]
+struct GhBranch {
+    name: String,
+}
+#[derive(Deserialize)]
+struct GhCommit {
+    sha: String,
+    commit: GhCommitDetail,
+}
+#[derive(Deserialize)]
+struct GhCommitDetail {
+    committer: GhCommitter,
+}
+#[derive(Deserialize)]
+struct GhCommitter {
+    date: String,
+}
+
+fn build_client() -> Result<reqwest::Client, String> {
+    reqwest::Client::builder()
+        .user_agent("fabtracker/0.1 (+https://github.com/)")
+        .build()
+        .map_err(|e| format!("failed to build HTTP client: {e}"))
+}
+
+async fn gh_json<T: DeserializeOwned>(client: &reqwest::Client, url: &str) -> Result<T, String> {
+    let resp = client
+        .get(url)
+        .header("Accept", "application/vnd.github+json")
+        .send()
+        .await
+        .map_err(|e| format!("request to {url} failed: {e}"))?;
+    if !resp.status().is_success() {
+        return Err(format!("GitHub API returned {} for {url}", resp.status()));
+    }
+    let body = resp
+        .text()
+        .await
+        .map_err(|e| format!("reading GitHub response from {url} failed: {e}"))?;
+    serde_json::from_str(&body)
+        .map_err(|e| format!("parsing GitHub response from {url} failed: {e}"))
+}
 
 async fn fetch(client: &reqwest::Client, url: &str) -> Result<String, String> {
     let resp = client
@@ -258,7 +341,7 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn fetch_parses_real_catalog() {
-        let cards = fetch_catalog().await.expect("fetch should succeed");
+        let cards = fetch_catalog_at("develop").await.expect("fetch should succeed");
         assert!(cards.len() > 1000, "expected a large catalog, got {}", cards.len());
 
         let katsu = cards

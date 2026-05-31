@@ -98,7 +98,18 @@ the card data/images are Legend Story Studios IP. Instead the Rust backend
   Source quirks handled here: stats are strings that may be `""`/`*`/`X`/`XX`
   (parsed to a number when possible, raw text kept as a fallback), printings are
   denormalized (we resolve set names + rarity shortcodes and pick a
-  representative image), and the dataset ref is pinned via `DATA_REF`.
+  representative image).
+
+**Which ref we pull.** The maintainer keeps the newest / spoiler-season cards on
+rotating feature branches (e.g. `omens-of-the-third-age`), ahead of `develop`.
+So `resolve_ref(mode)` decides the ref: **"auto"** (default) queries the GitHub
+API and picks the branch with the **most recent commit across the whole repo**
+— which naturally follows whichever branch is active — or an explicit
+branch/tag/sha the user sets. We sync at the resolved **commit sha** and store it
+(`last_synced_sha` + branch in `meta`). `check_updates` compares the resolved sha
+to the stored one; the frontend runs it on launch and **auto-re-syncs when the
+remote is ahead**. The mode is configurable via the ⚙ data-source popover
+(persisted in `meta` as `data_ref_mode`).
 
 ## Persistence (SQLite)
 

@@ -12,6 +12,8 @@ import {
   searchCards,
   syncCards,
   getCatalogInfo,
+  checkUpdates,
+  setDataRef,
   listBinders,
   createBinder,
   renameBinder,
@@ -23,12 +25,14 @@ import {
   moveCardAll,
   removeCardFromBinder,
   ownedCounts,
+  type CatalogInfo,
 } from "./lib/api";
 import { CardGrid } from "./components/CardGrid";
 import { CardDetail } from "./components/CardDetail";
 import { SearchBar } from "./components/SearchBar";
 import { BinderBar } from "./components/BinderBar";
 import { BinderMenu, type BinderMenuState } from "./components/BinderMenu";
+import { DataSourceButton } from "./components/DataSourceButton";
 
 type Status = "loading" | "empty" | "ready" | "error";
 type View = "browse" | "collection";
@@ -40,7 +44,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [lastSynced, setLastSynced] = useState<number | null>(null);
+  const [catalogInfo, setCatalogInfo] = useState<CatalogInfo | null>(null);
   const [results, setResults] = useState<Card[] | null>(null);
   const [searching, setSearching] = useState(false);
   // Browse view: restrict to cards in the collection ("Owned" switch / have:).
@@ -60,7 +64,16 @@ export default function App() {
 
   function refreshInfo() {
     getCatalogInfo()
-      .then((info) => setLastSynced(info.lastSynced))
+      .then(setCatalogInfo)
+      .catch(() => {});
+  }
+
+  // If the resolved ref is ahead of our last sync, pull it automatically.
+  function maybeAutoSync() {
+    checkUpdates()
+      .then((u) => {
+        if (u.updateAvailable) sync();
+      })
       .catch(() => {});
   }
 
@@ -73,6 +86,7 @@ export default function App() {
           setSelectedId(data[0].id);
           setStatus("ready");
           refreshInfo();
+          maybeAutoSync();
         } else {
           setStatus("empty");
         }
@@ -152,6 +166,10 @@ export default function App() {
       setSyncing(false);
     }
   }
+
+  // Change the data-source ref mode, then re-sync from it.
+  const applyDataRef = (mode: string) =>
+    setDataRef(mode).then(() => sync()).catch(() => {});
 
   // --- Collection mutations -------------------------------------------------
   const handleAdjustEntry = (binderId: number, key: EntryKey, delta: number) =>
@@ -254,11 +272,17 @@ export default function App() {
             {isBrowse && (
               <Switch label="Owned" checked={ownedOnly} onChange={setOwnedOnly} />
             )}
-            {lastSynced && (
+            {catalogInfo?.lastSynced && (
               <span className="whitespace-nowrap text-[11px] text-muted">
-                Synced {formatSynced(lastSynced)}
+                {catalogInfo.branch ? `${catalogInfo.branch} · ` : ""}
+                synced {formatSynced(catalogInfo.lastSynced)}
               </span>
             )}
+            <DataSourceButton
+              info={catalogInfo}
+              syncing={syncing}
+              onApply={applyDataRef}
+            />
             <button
               type="button"
               onClick={sync}

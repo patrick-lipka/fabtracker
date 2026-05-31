@@ -7,6 +7,22 @@ The roadmap below it is the north star; the original vision follows.
 
 ## Log
 
+### 2026-05-31 — Auto-tracking, configurable data source ✅
+- **Why:** the maintainer keeps newest/spoiler-season cards on rotating feature
+  branches (e.g. `omens-of-the-third-age`), ahead of `develop`. A card the user
+  physically owned (Basalt Boots, SBR012/PEN019) was only on that branch.
+- `catalog.rs`: `resolve_ref(mode)` — "auto" picks the branch with the **newest
+  commit across all branches** (via the GitHub API), so it follows whichever
+  branch is currently active; or an explicit branch/tag/sha. `fetch_catalog_at`
+  pulls a specific ref; we sync at the resolved **commit sha** and record it.
+- Update detection: `check_updates` compares the resolved sha to the last-synced
+  sha. The frontend runs it on launch and **auto-re-syncs when the remote is
+  ahead**. `set_data_ref` persists the mode (default "auto") in `meta`.
+- UI: a ⚙ data-source popover (Auto vs specific branch/tag) and the header now
+  shows the synced branch. New generic `db::get_meta` / `set_meta`.
+- Verified: auto-detected `omens-of-the-third-age` on launch, pulled 4857 cards,
+  Basalt Boots now present.
+
 ### 2026-05-31 — Search by collector number ✅
 - Collector numbers (e.g. `MST131`, `WTR043`) are now searchable: folded into
   bare-word free text and exposed as a `cn:` / `num:` field, matching any of a

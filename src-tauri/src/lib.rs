@@ -28,12 +28,30 @@ use tauri::{Manager, State};
 /// The single shared SQLite connection, guarded by a mutex (queries are short).
 type Db = Mutex<Connection>;
 
+const META_REF_MODE: &str = "data_ref_mode";
+const META_SYNCED_SHA: &str = "last_synced_sha";
+const META_SYNCED_BRANCH: &str = "last_synced_branch";
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct CatalogInfo {
     count: i64,
     /// Unix epoch milliseconds of the last successful sync, if any.
     last_synced: Option<i64>,
+    /// Branch the cached catalog was synced from.
+    branch: Option<String>,
+    /// Configured ref mode ("auto" or an explicit branch/tag/sha).
+    mode: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateInfo {
+    update_available: bool,
+    branch: String,
+    sha: String,
+    date: String,
+    current_sha: Option<String>,
 }
 
 /// Read the cached catalog from the database (empty ⇒ not synced yet).
@@ -49,6 +67,36 @@ fn get_catalog_info(db: State<'_, Db>) -> Result<CatalogInfo, String> {
     Ok(CatalogInfo {
         count: db::card_count(&conn)?,
         last_synced: db::get_last_synced(&conn)?,
+        branch: db::get_meta(&conn, META_SYNCED_BRANCH)?,
+        mode: db::get_meta(&conn, META_REF_MODE)?.unwrap_or_else(|| "auto".to_string()),
+    })
+}
+
+/// Set the data-source ref mode: "auto" (newest commit across branches) or an
+/// explicit branch/tag/sha.
+#[tauri::command]
+fn set_data_ref(mode: String, db: State<'_, Db>) -> Result<(), String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    db::set_meta(&conn, META_REF_MODE, mode.trim())
+}
+
+/// Check whether the resolved ref is newer than what we last synced.
+#[tauri::command]
+async fn check_updates(db: State<'_, Db>) -> Result<UpdateInfo, String> {
+    let (mode, current_sha) = {
+        let conn = db.lock().map_err(|e| e.to_string())?;
+        (
+            db::get_meta(&conn, META_REF_MODE)?.unwrap_or_else(|| "auto".to_string()),
+            db::get_meta(&conn, META_SYNCED_SHA)?,
+        )
+    };
+    let info = catalog::resolve_ref(&mode).await?;
+    Ok(UpdateInfo {
+        update_available: current_sha.as_deref() != Some(info.sha.as_str()),
+        branch: info.branch,
+        sha: info.sha,
+        date: info.date,
+        current_sha,
     })
 }
 
@@ -64,11 +112,17 @@ fn search_cards(
     db::search_cards(&conn, &query, owned_only)
 }
 
-/// Download the latest catalog, replace the DB copy, and return the cards.
+/// Download the catalog at the resolved ref, replace the DB copy, record the
+/// synced branch/sha, and return the cards.
 #[tauri::command]
 async fn sync_cards(db: State<'_, Db>) -> Result<Vec<Card>, String> {
-    // Network first — we deliberately don't hold the DB lock across the await.
-    let cards = catalog::fetch_catalog().await?;
+    let mode = {
+        let conn = db.lock().map_err(|e| e.to_string())?;
+        db::get_meta(&conn, META_REF_MODE)?.unwrap_or_else(|| "auto".to_string())
+    };
+    // Network work — no DB lock held across awaits.
+    let info = catalog::resolve_ref(&mode).await?;
+    let cards = catalog::fetch_catalog_at(&info.sha).await?;
     let now_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis() as i64)
@@ -77,6 +131,8 @@ async fn sync_cards(db: State<'_, Db>) -> Result<Vec<Card>, String> {
         let mut conn = db.lock().map_err(|e| e.to_string())?;
         db::replace_cards(&mut conn, &cards)?;
         db::set_last_synced(&conn, now_ms)?;
+        db::set_meta(&conn, META_SYNCED_SHA, &info.sha)?;
+        db::set_meta(&conn, META_SYNCED_BRANCH, &info.branch)?;
     }
     Ok(cards)
 }
@@ -227,6 +283,8 @@ pub fn run() {
             search_cards,
             sync_cards,
             get_catalog_info,
+            set_data_ref,
+            check_updates,
             list_binders,
             create_binder,
             rename_binder,

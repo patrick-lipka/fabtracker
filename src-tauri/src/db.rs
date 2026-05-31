@@ -6,7 +6,7 @@
 //! gives us cheap full reconstruction now and SQL filtering when the richer
 //! search lands, without committing to a rigid relational shape too early.
 
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use rusqlite_migration::{Migrations, M};
 
 use crate::card::Card;
@@ -196,32 +196,31 @@ pub fn card_count(conn: &Connection) -> Result<i64, String> {
         .map_err(|e| format!("count cards: {e}"))
 }
 
-pub fn set_last_synced(conn: &Connection, epoch_ms: i64) -> Result<(), String> {
+/// Generic key/value access to the `meta` table.
+pub fn set_meta(conn: &Connection, key: &str, value: &str) -> Result<(), String> {
     conn.execute(
         "INSERT INTO meta (key, value) VALUES (?1, ?2)
          ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-        params![LAST_SYNCED_KEY, epoch_ms.to_string()],
+        params![key, value],
     )
-    .map_err(|e| format!("set last_synced: {e}"))?;
+    .map_err(|e| format!("set meta {key}: {e}"))?;
     Ok(())
 }
 
+pub fn get_meta(conn: &Connection, key: &str) -> Result<Option<String>, String> {
+    conn.query_row("SELECT value FROM meta WHERE key = ?1", params![key], |r| {
+        r.get::<_, String>(0)
+    })
+    .optional()
+    .map_err(|e| format!("get meta {key}: {e}"))
+}
+
+pub fn set_last_synced(conn: &Connection, epoch_ms: i64) -> Result<(), String> {
+    set_meta(conn, LAST_SYNCED_KEY, &epoch_ms.to_string())
+}
+
 pub fn get_last_synced(conn: &Connection) -> Result<Option<i64>, String> {
-    let value: Option<String> = conn
-        .query_row(
-            "SELECT value FROM meta WHERE key = ?1",
-            params![LAST_SYNCED_KEY],
-            |r| r.get(0),
-        )
-        .map_err(|e| {
-            if matches!(e, rusqlite::Error::QueryReturnedNoRows) {
-                "no row".to_string()
-            } else {
-                format!("get last_synced: {e}")
-            }
-        })
-        .ok();
-    Ok(value.and_then(|v| v.parse().ok()))
+    Ok(get_meta(conn, LAST_SYNCED_KEY)?.and_then(|v| v.parse().ok()))
 }
 
 #[cfg(test)]

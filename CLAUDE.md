@@ -25,7 +25,12 @@ Requires Rust ≥ 1.85 (`rustup update stable`) and Node ≥ 20.
   sync; if it churns, switch to generating the TS (`ts-rs`).
 - Card data is downloaded at runtime by `src-tauri/src/catalog.rs` (the
   the-fab-cube dataset) — never committed. Source-schema mapping lives only in
-  `catalog.rs` (`fetch_catalog`).
+  `catalog.rs`. `resolve_ref(mode)` chooses the ref: "auto" = newest commit
+  across all branches (GitHub API; follows the maintainer's active spoiler
+  branch), else an explicit branch/tag/sha; `fetch_catalog_at(ref)` pulls it. We
+  sync at the commit sha and store it; `check_updates` compares for newer commits
+  and the frontend auto-re-syncs on launch. Mode persisted in `meta`
+  (`data_ref_mode`), set via the ⚙ popover.
 - Persistence: `src-tauri/src/db.rs` — SQLite (`fabtracker.db` in the app-data
   dir), opened once in `setup`, shared as `Mutex<Connection>` managed state.
   Cards stored as indexed columns + a `data` JSON blob; schema via

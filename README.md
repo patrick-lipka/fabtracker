@@ -39,7 +39,11 @@ The card data is fetched at runtime from the community-maintained
 [the-fab-cube/flesh-and-blood-cards](https://github.com/the-fab-cube/flesh-and-blood-cards)
 dataset (English). We **don't** vendor it into this repo — the data and images
 are Legend Story Studios IP — so the app downloads it and stores it in a local
-SQLite database. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+SQLite database. By default it **auto-tracks the newest data across the dataset's
+branches** (the maintainer keeps spoiler-season cards on rotating feature
+branches) and re-syncs on launch when the remote is ahead; you can pin a specific
+branch/tag via the ⚙ data-source control. See
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Tech stack
 
