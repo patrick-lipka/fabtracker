@@ -103,3 +103,56 @@ export type OwnedCounts = Record<string, number>;
 
 /** How the card list is displayed. */
 export type ViewMode = "small" | "medium" | "large" | "list";
+
+// --- Decks ------------------------------------------------------------------
+
+export type DeckFormat = "cc" | "blitz";
+
+export interface DeckSummary {
+  id: number;
+  name: string;
+  format: string;
+  heroId: string;
+  heroName: string | null;
+  heroImage: string | null;
+  cardCount: number;
+  updatedAt: number;
+}
+
+export interface DeckCardEntry {
+  card: Card;
+  quantity: number;
+  owned: number;
+  legal: boolean;
+}
+
+export interface CurvePoint {
+  cost: number; // 6 = "6+"
+  count: number;
+}
+
+export interface PitchCounts {
+  one: number;
+  two: number;
+  three: number;
+}
+
+export interface Legality {
+  ok: boolean;
+  mainDeckCount: number;
+  required: string;
+  issues: string[];
+}
+
+export interface DeckDetail {
+  id: number;
+  name: string;
+  format: string;
+  hero: Card | null;
+  cards: DeckCardEntry[];
+  totalCards: number;
+  curve: CurvePoint[];
+  pitchCounts: PitchCounts;
+  missing: number;
+  legality: Legality;
+}

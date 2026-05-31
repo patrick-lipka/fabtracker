@@ -12,6 +12,7 @@ mod card;
 mod catalog;
 mod collection;
 mod db;
+mod deck;
 mod search;
 
 use std::sync::Mutex;
@@ -21,6 +22,7 @@ use std::collections::HashMap;
 
 use card::Card;
 use collection::{Binder, CardCollectionEntry, CollectionCard, EntryKey};
+use deck::{DeckDetail, DeckSummary};
 use rusqlite::Connection;
 use serde::Serialize;
 use tauri::{Manager, State};
@@ -264,6 +266,66 @@ fn owned_counts(db: State<'_, Db>) -> Result<HashMap<String, i64>, String> {
     collection::owned_counts(&conn)
 }
 
+// --- Decks ------------------------------------------------------------------
+
+#[tauri::command]
+fn list_heroes(owned_only: bool, db: State<'_, Db>) -> Result<Vec<Card>, String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    deck::list_heroes(&conn, owned_only)
+}
+
+#[tauri::command]
+fn list_decks(db: State<'_, Db>) -> Result<Vec<DeckSummary>, String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    deck::list_decks(&conn)
+}
+
+#[tauri::command]
+fn create_deck(
+    name: String,
+    format: String,
+    hero_id: String,
+    db: State<'_, Db>,
+) -> Result<i64, String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    deck::create_deck(&conn, name.trim(), &format, &hero_id)
+}
+
+#[tauri::command]
+fn get_deck(id: i64, db: State<'_, Db>) -> Result<DeckDetail, String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    deck::get_deck(&conn, id)
+}
+
+#[tauri::command]
+fn rename_deck(id: i64, name: String, db: State<'_, Db>) -> Result<(), String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    deck::rename_deck(&conn, id, name.trim())
+}
+
+#[tauri::command]
+fn set_deck_format(id: i64, format: String, db: State<'_, Db>) -> Result<(), String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    deck::set_deck_format(&conn, id, &format)
+}
+
+#[tauri::command]
+fn delete_deck(id: i64, db: State<'_, Db>) -> Result<(), String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    deck::delete_deck(&conn, id)
+}
+
+#[tauri::command]
+fn adjust_deck_card(
+    deck_id: i64,
+    card_id: String,
+    delta: i64,
+    db: State<'_, Db>,
+) -> Result<(), String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    deck::adjust_deck_card(&conn, deck_id, &card_id, delta)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -297,6 +359,14 @@ pub fn run() {
             move_card_all,
             remove_card_from_binder,
             owned_counts,
+            list_heroes,
+            list_decks,
+            create_deck,
+            get_deck,
+            rename_deck,
+            set_deck_format,
+            delete_deck,
+            adjust_deck_card,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

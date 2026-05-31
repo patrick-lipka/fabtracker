@@ -7,6 +7,8 @@ import type {
   Card,
   CardCollectionEntry,
   CollectionCard,
+  DeckDetail,
+  DeckSummary,
   EntryKey,
   OwnedCounts,
 } from "../types/card";
@@ -141,4 +143,42 @@ export function removeCardFromBinder(
 /** card id → total owned quantity across all binders. */
 export function ownedCounts(): Promise<OwnedCounts> {
   return invoke<OwnedCounts>("owned_counts");
+}
+
+// --- Decks ------------------------------------------------------------------
+
+/** All heroes (optionally only owned ones). */
+export function listHeroes(ownedOnly: boolean): Promise<Card[]> {
+  return invoke<Card[]>("list_heroes", { ownedOnly });
+}
+
+export function listDecks(): Promise<DeckSummary[]> {
+  return invoke<DeckSummary[]>("list_decks");
+}
+
+/** Create a deck for a hero; returns the new deck id. */
+export function createDeck(name: string, format: string, heroId: string): Promise<number> {
+  return invoke<number>("create_deck", { name, format, heroId });
+}
+
+/** Full deck with resolved cards, stats, curve, legality, and missing count. */
+export function getDeck(id: number): Promise<DeckDetail> {
+  return invoke<DeckDetail>("get_deck", { id });
+}
+
+export function renameDeck(id: number, name: string): Promise<void> {
+  return invoke("rename_deck", { id, name });
+}
+
+export function setDeckFormat(id: number, format: string): Promise<void> {
+  return invoke("set_deck_format", { id, format });
+}
+
+export function deleteDeck(id: number): Promise<void> {
+  return invoke("delete_deck", { id });
+}
+
+/** Change a card's quantity in a deck by `delta` (removed at 0). */
+export function adjustDeckCard(deckId: number, cardId: string, delta: number): Promise<void> {
+  return invoke("adjust_deck_card", { deckId, cardId, delta });
 }

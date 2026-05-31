@@ -55,6 +55,14 @@ Requires Rust ≥ 1.85 (`rustup update stable`) and Node ≥ 20.
   attaches each set's release date (`released`), and sorts printings newest-first;
   the detail image defaults to newest (Browse) / newest-owned (Collection) and is
   clickable per printing. Catalog changes need a Re-sync to take effect.
+- Decks: `src-tauri/src/deck.rs` — `decks` + `deck_cards` (migration v4).
+  `get_deck` computes resolved cards (+owned), cost curve, pitch counts,
+  missing-vs-collection, and legality (format size + per-name copy limits + hero
+  class/talent via an `IDENTITY` word set, mirrored in `lib/fab.ts`
+  `legalForHero`). Commands: list_heroes, list_decks, create_deck, get_deck,
+  rename_deck, set_deck_format, delete_deck, adjust_deck_card. Frontend:
+  `DecksTab` (list → hero picker → editor) + `DeckEditor` (pool reuses
+  `CardGrid`). Deferred: bans/LL, slot limits, specialization, Commoner.
 - Backend tests: `cd src-tauri && cargo test --lib` (search parser + end-to-end
   search + DB round-trip; no network). The real network fetch test is
   `#[ignore]`d: `cargo test -- --ignored`.

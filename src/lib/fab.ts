@@ -2,6 +2,27 @@
 // formatting utilities. The backend already provides the printed type line
 // (`typeText`) and resolved rarity labels, so this stays thin.
 
+import type { Card } from "../types/card";
+
+/** Class (excl. Generic) + talent words — mirror of `deck.rs` IDENTITY. */
+const DECK_IDENTITY = new Set([
+  "Brute", "Guardian", "Ninja", "Warrior", "Mechanologist", "Ranger",
+  "Runeblade", "Wizard", "Illusionist", "Assassin", "Bard", "Merchant",
+  "Necromancer", "Shapeshifter", "Pirate",
+  "Draconic", "Earth", "Elemental", "Ice", "Light", "Lightning", "Royal",
+  "Shadow", "Chaos", "Mystic",
+]);
+
+/** Whether a card may be included in a hero's deck (class/talent legality). */
+export function legalForHero(card: Card, hero: Card | null): boolean {
+  if (!hero) return true;
+  if (card.types.includes("Generic")) return true;
+  const cardIdentity = card.types.filter((t) => DECK_IDENTITY.has(t));
+  if (cardIdentity.length === 0) return true;
+  const heroIdentity = new Set(hero.types.filter((t) => DECK_IDENTITY.has(t)));
+  return cardIdentity.every((w) => heroIdentity.has(w));
+}
+
 /** Pitch strip color name → hex (matches the --color-pitch-* theme tokens). */
 const PITCH_HEX: Record<string, string> = {
   Red: "#d8403a",

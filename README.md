@@ -3,8 +3,8 @@
 A local-first, self-hostable collection & deck manager for **Flesh and Blood** —
 think Moxfield, but native-fast and offline-capable.
 
-> **Status:** Step 5 — browse, search, and build a **collection** organized into
-> binders (all in local SQLite). See [`docs/PROJECT_LOG.md`](docs/PROJECT_LOG.md)
+> **Status:** Step 6 — browse, search, build a binder **collection**, and build
+> **decks** (all in local SQLite). See [`docs/PROJECT_LOG.md`](docs/PROJECT_LOG.md)
 > for the roadmap and where we are.
 
 ## What it does today
@@ -34,6 +34,11 @@ think Moxfield, but native-fast and offline-capable.
   aggregates across binders. The same query language works **within the
   Collection tab** (scoped to the selected binder or all), and an **"Owned"**
   switch (or `have:` in a query) restricts Browse search to cards you own.
+- **Deck building** (Decks tab, MTG-Arena-style). Start a deck by picking a hero
+  (all heroes, or owned-only), then build in a two-pane editor: a hero-legal
+  card pool on the left, the deck on the right with a **cost curve + pitch
+  breakdown**, **format legality** (Classic Constructed / Blitz: size, copy
+  limits, class/talent), and a **missing-vs-collection** count.
 
 ### Where the data comes from
 
@@ -96,7 +101,7 @@ npm run tauri build    # produce a distributable desktop binary
 ```
 fabtracker/
 ├── src/                      # React + TypeScript frontend
-│   ├── components/           # CardGrid, CardList, CardTile, CardDetail, SearchBar, BinderBar, BinderMenu, DataSourceButton
+│   ├── components/           # CardGrid, CardList, CardTile, CardDetail, SearchBar, BinderBar, BinderMenu, DataSourceButton, DecksTab, DeckEditor
 │   ├── lib/                  # api.ts (Tauri IPC), fab.ts (display helpers)
 │   ├── types/card.ts         # Card type — mirror of the Rust model
 │   └── App.tsx               # layout + state
@@ -106,6 +111,7 @@ fabtracker/
 │   ├── src/db.rs             # SQLite persistence (migrations, store/load/search)
 │   ├── src/search.rs         # query language → parameterized SQL WHERE
 │   ├── src/collection.rs     # binders + per-card quantities
+│   ├── src/deck.rs           # decks: legality, curve, missing-vs-collection
 │   └── src/lib.rs            # Tauri app + commands (get_cards, search_cards, …)
 └── docs/
     ├── ARCHITECTURE.md       # decisions & rationale

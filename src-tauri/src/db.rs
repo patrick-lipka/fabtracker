@@ -82,6 +82,23 @@ const MIGRATIONS_SLICE: &[M<'static>] = &[
          ALTER TABLE collection_entries_new RENAME TO collection_entries;
          CREATE INDEX idx_entries_card ON collection_entries(card_id);",
     ),
+    // v4 — decks: a hero + a list of cards, per format.
+    M::up(
+        "CREATE TABLE decks (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            name        TEXT NOT NULL,
+            format      TEXT NOT NULL DEFAULT 'cc',
+            hero_id     TEXT NOT NULL,
+            created_at  INTEGER NOT NULL,
+            updated_at  INTEGER NOT NULL
+         );
+         CREATE TABLE deck_cards (
+            deck_id     INTEGER NOT NULL REFERENCES decks(id) ON DELETE CASCADE,
+            card_id     TEXT NOT NULL,
+            quantity    INTEGER NOT NULL DEFAULT 1,
+            PRIMARY KEY (deck_id, card_id)
+         );",
+    ),
 ];
 
 const LAST_SYNCED_KEY: &str = "last_synced_ms";

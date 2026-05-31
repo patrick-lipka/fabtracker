@@ -35,9 +35,10 @@ import { SearchBar } from "./components/SearchBar";
 import { BinderBar } from "./components/BinderBar";
 import { BinderMenu, type BinderMenuState } from "./components/BinderMenu";
 import { DataSourceButton } from "./components/DataSourceButton";
+import { DecksTab } from "./components/DecksTab";
 
 type Status = "loading" | "empty" | "ready" | "error";
-type View = "browse" | "collection";
+type View = "browse" | "collection" | "decks";
 
 export default function App() {
   const [cards, setCards] = useState<Card[]>([]);
@@ -272,19 +273,25 @@ export default function App() {
         {ready && (
           <>
             <ViewTabs view={view} onChange={setView} />
-            <div className="ml-2 flex-1">
-              <SearchBar
-                value={query}
-                onChange={setQuery}
-                resultCount={resultCount}
-                totalCount={totalCount}
-                searching={searching}
-              />
-            </div>
-            {isBrowse && (
-              <Switch label="Owned" checked={ownedOnly} onChange={setOwnedOnly} />
+            {view === "decks" ? (
+              <div className="flex-1" />
+            ) : (
+              <>
+                <div className="ml-2 flex-1">
+                  <SearchBar
+                    value={query}
+                    onChange={setQuery}
+                    resultCount={resultCount}
+                    totalCount={totalCount}
+                    searching={searching}
+                  />
+                </div>
+                {isBrowse && (
+                  <Switch label="Owned" checked={ownedOnly} onChange={setOwnedOnly} />
+                )}
+                <ViewModeToggle mode={viewMode} onChange={setViewMode} />
+              </>
             )}
-            <ViewModeToggle mode={viewMode} onChange={setViewMode} />
             {catalogInfo?.lastSynced && (
               <span className="whitespace-nowrap text-[11px] text-muted">
                 {catalogInfo.branch ? `${catalogInfo.branch} · ` : ""}
@@ -309,6 +316,16 @@ export default function App() {
       </header>
 
       <div className="flex min-h-0 flex-1">
+        {view === "decks" ? (
+          <div className="min-w-0 flex-1">
+            {ready ? (
+              <DecksTab cards={cards} owned={owned} />
+            ) : (
+              <Centered>Download the card data first from the Browse tab.</Centered>
+            )}
+          </div>
+        ) : (
+          <>
         <main className="flex min-w-0 flex-1 flex-col">
           {ready && !isBrowse && (
             <BinderBar
@@ -397,6 +414,8 @@ export default function App() {
             onMoveEntry={handleMoveEntry}
           />
         </aside>
+          </>
+        )}
       </div>
 
       {binderMenu && (
@@ -495,7 +514,7 @@ function ViewModeToggle({
 function ViewTabs({ view, onChange }: { view: View; onChange: (v: View) => void }) {
   return (
     <div className="flex rounded-lg border border-border bg-surface-2 p-0.5 text-xs">
-      {(["browse", "collection"] as const).map((v) => (
+      {(["browse", "collection", "decks"] as const).map((v) => (
         <button
           key={v}
           type="button"

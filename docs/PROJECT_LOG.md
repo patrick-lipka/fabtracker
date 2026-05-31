@@ -7,6 +7,25 @@ The roadmap below it is the north star; the original vision follows.
 
 ## Log
 
+### 2026-06-01 — Step 6: deck building + My Decks tab ✅
+- Backend: migration v4 (`decks`, `deck_cards`). New `deck.rs`: CRUD,
+  `adjust_deck_card`, `list_heroes(ownedOnly)`, and `get_deck` computing resolved
+  cards (+owned), **cost curve + pitch counts**, **missing-vs-collection**, and
+  **legality** — format size (CC ≥60 / Blitz =40 main-deck cards), per-name copy
+  limits (3 / 2), and hero **class/talent legality** via an `IDENTITY` word set
+  (lenient on unknown new words). Commands wired; tests for legality/stats and
+  copy-limit/delete.
+- Deferred (noted): ban/suspended/Living-Legend lists, weapon/equipment slot
+  limits, specialization cards, Commoner format.
+- Frontend (MTG-Arena-inspired): a **Decks** tab — My Decks list → **New deck**
+  → **hero picker** (all heroes or owned-only) → two-pane **editor**: legal card
+  pool (search + "Legal only" toggle, click to add) on the left; deck panel on
+  the right with editable name, CC/Blitz selector, hero, legality status +
+  issues, **cost curve + pitch bars**, missing-from-collection count, and the
+  card list grouped Weapons/Equipment/Main with steppers.
+- Verified: 15 backend tests, `npm run build`, v4 migration applied to the real
+  DB (144 heroes), app boots clean.
+
 ### 2026-06-01 — `binder:` search filter + Cardmarket link ✅
 - `binder:<name>` (alias `bin:`) restricts results to cards held in a binder
   whose name matches — `search::BINDER_CLAUSE` (EXISTS over `collection_entries`
@@ -206,6 +225,10 @@ The roadmap below it is the north star; the original vision follows.
 ## Roadmap
 
 Rough order; each is its own focused chunk of work.
+
+> Steps 1–6 are done (browse, real data, SQLite, search, collection, decks).
+> Next candidates: richer deck legality (bans/LL, slot limits), deck export/
+> import, set/value totals, collection stats.
 
 1. **Card browser (mock data)** — ✅ done. Browse + inspect.
 2. **Real card data** — ✅ done. Runtime download + cache + parse of the
