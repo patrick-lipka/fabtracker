@@ -100,3 +100,6 @@ export interface CollectionCard {
 
 /** Map of card id → total owned quantity across all binders. */
 export type OwnedCounts = Record<string, number>;
+
+/** How the card list is displayed. */
+export type ViewMode = "small" | "medium" | "large" | "list";

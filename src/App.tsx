@@ -6,6 +6,7 @@ import type {
   CollectionCard,
   EntryKey,
   OwnedCounts,
+  ViewMode,
 } from "./types/card";
 import {
   getCards,
@@ -28,6 +29,7 @@ import {
   type CatalogInfo,
 } from "./lib/api";
 import { CardGrid } from "./components/CardGrid";
+import { CardList } from "./components/CardList";
 import { CardDetail } from "./components/CardDetail";
 import { SearchBar } from "./components/SearchBar";
 import { BinderBar } from "./components/BinderBar";
@@ -49,6 +51,16 @@ export default function App() {
   const [searching, setSearching] = useState(false);
   // Browse view: restrict to cards in the collection ("Owned" switch / have:).
   const [ownedOnly, setOwnedOnly] = useState(false);
+  // Card display mode (shared across Browse/Collection), persisted locally.
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const v = localStorage.getItem("fabtracker:viewMode");
+    return v === "small" || v === "medium" || v === "large" || v === "list"
+      ? v
+      : "medium";
+  });
+  useEffect(() => {
+    localStorage.setItem("fabtracker:viewMode", viewMode);
+  }, [viewMode]);
 
   // Collection state.
   const [view, setView] = useState<View>("browse");
@@ -272,6 +284,7 @@ export default function App() {
             {isBrowse && (
               <Switch label="Owned" checked={ownedOnly} onChange={setOwnedOnly} />
             )}
+            <ViewModeToggle mode={viewMode} onChange={setViewMode} />
             {catalogInfo?.lastSynced && (
               <span className="whitespace-nowrap text-[11px] text-muted">
                 {catalogInfo.branch ? `${catalogInfo.branch} · ` : ""}
@@ -350,15 +363,25 @@ export default function App() {
                 </div>
               </Centered>
             ) : (
-              ready && (
-                <CardGrid
+              ready &&
+              (viewMode === "list" ? (
+                <CardList
                   cards={displayCards}
                   selectedId={selectedId}
                   onSelect={(c) => setSelectedId(c.id)}
                   quantities={quantities}
                   onCardMenu={openBinderMenu}
                 />
-              )
+              ) : (
+                <CardGrid
+                  cards={displayCards}
+                  selectedId={selectedId}
+                  onSelect={(c) => setSelectedId(c.id)}
+                  quantities={quantities}
+                  onCardMenu={openBinderMenu}
+                  size={viewMode}
+                />
+              ))
             )}
           </div>
         </main>
@@ -434,6 +457,38 @@ function Switch({
       </span>
       {label}
     </button>
+  );
+}
+
+function ViewModeToggle({
+  mode,
+  onChange,
+}: {
+  mode: ViewMode;
+  onChange: (m: ViewMode) => void;
+}) {
+  const options: [ViewMode, string, string][] = [
+    ["small", "S", "Small images"],
+    ["medium", "M", "Medium images"],
+    ["large", "L", "Large images (max 2 per row)"],
+    ["list", "☰", "List (no images)"],
+  ];
+  return (
+    <div className="flex rounded-lg border border-border bg-surface-2 p-0.5 text-xs">
+      {options.map(([m, label, title]) => (
+        <button
+          key={m}
+          type="button"
+          title={title}
+          onClick={() => onChange(m)}
+          className={`rounded-md px-2 py-1.5 ${
+            mode === m ? "bg-accent font-semibold text-black" : "text-gray-300 hover:text-white"
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
   );
 }
 

@@ -14,7 +14,9 @@ think Moxfield, but native-fast and offline-capable.
   database for instant, offline loading; a "Re-sync" button refreshes it, and
   the header shows when it was last synced.
 - Displays the catalog in a responsive, virtualized grid with real card images
-  (a styled frame is shown while images load or if one is missing).
+  (a styled frame is shown while images load or if one is missing). Switch
+  between **small / medium / large** image sizes (large = max 2 per row) or a
+  **list** view (image-free data table) — applies to Browse and Collection.
 - Click any card to inspect full details (stats, type line, keywords, traits,
   rules text, and every printing with its set/rarity/artist). Detail facets are
   **clickable** — click a type, keyword, trait, stat, or a printing's set to
@@ -94,7 +96,7 @@ npm run tauri build    # produce a distributable desktop binary
 ```
 fabtracker/
 ├── src/                      # React + TypeScript frontend
-│   ├── components/           # CardGrid, CardTile, CardDetail, SearchBar, BinderBar, BinderMenu
+│   ├── components/           # CardGrid, CardList, CardTile, CardDetail, SearchBar, BinderBar, BinderMenu, DataSourceButton
 │   ├── lib/                  # api.ts (Tauri IPC), fab.ts (display helpers)
 │   ├── types/card.ts         # Card type — mirror of the Rust model
 │   └── App.tsx               # layout + state

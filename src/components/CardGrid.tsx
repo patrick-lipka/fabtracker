@@ -3,6 +3,8 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import type { Card } from "../types/card";
 import { CardTile } from "./CardTile";
 
+type TileSize = "small" | "medium" | "large";
+
 interface CardGridProps {
   cards: Card[];
   selectedId: string | null;
@@ -11,13 +13,21 @@ interface CardGridProps {
   quantities?: Record<string, number>;
   /** Open the binder menu for a card at screen coordinates. */
   onCardMenu?: (card: Card, x: number, y: number) => void;
+  size: TileSize;
 }
 
-const MIN_TILE_WIDTH = 188; // px; columns are derived from container width
 const GAP = 14;
 const PADDING_X = 16; // matches the container's px-4
 /** FaB cards are 2.5" × 3.5" → height = width × 1.4. */
 const CARD_ASPECT = 3.5 / 2.5;
+
+// Minimum tile width per size, and an optional cap on columns. "large" is
+// capped at 2 columns at any window width.
+const SIZES: Record<TileSize, { minWidth: number; maxColumns: number }> = {
+  small: { minWidth: 120, maxColumns: Infinity },
+  medium: { minWidth: 188, maxColumns: Infinity },
+  large: { minWidth: 300, maxColumns: 2 },
+};
 
 interface Layout {
   columns: number;
@@ -36,23 +46,25 @@ export function CardGrid({
   onSelect,
   quantities,
   onCardMenu,
+  size,
 }: CardGridProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [layout, setLayout] = useState<Layout>({
     columns: 1,
-    rowHeight: Math.round(MIN_TILE_WIDTH * CARD_ASPECT),
+    rowHeight: Math.round(SIZES[size].minWidth * CARD_ASPECT),
   });
 
-  // Recompute layout whenever the scroll container resizes.
+  // Recompute layout whenever the scroll container resizes or the size changes.
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
+    const { minWidth, maxColumns } = SIZES[size];
     const update = () => {
       const content = el.clientWidth - PADDING_X * 2;
       if (content <= 0) return;
       const columns = Math.max(
         1,
-        Math.floor((content + GAP) / (MIN_TILE_WIDTH + GAP)),
+        Math.min(maxColumns, Math.floor((content + GAP) / (minWidth + GAP))),
       );
       const tileWidth = (content - (columns - 1) * GAP) / columns;
       const rowHeight = Math.round(tileWidth * CARD_ASPECT);
@@ -66,7 +78,7 @@ export function CardGrid({
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [size]);
 
   const { columns, rowHeight } = layout;
   const rowCount = Math.ceil(cards.length / columns);

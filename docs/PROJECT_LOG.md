@@ -7,6 +7,15 @@ The roadmap below it is the north star; the original vision follows.
 
 ## Log
 
+### 2026-06-01 — Card view options (image sizes + list) ✅
+- Header toggle `[S] [M] [L] [☰]` (shared by Browse and Collection, persisted in
+  localStorage): **small / medium (default) / large** image sizes, plus a
+  **list** view (no images — a dense, virtualized data table: name, type, pitch,
+  cost, P/D, rarity, owned qty).
+- `CardGrid` parameterized by `size` (min tile width + column cap); **large** is
+  capped at **2 columns at any window width**. New `CardList` component
+  (virtualized rows, right-click / + binder menu, owned-qty column).
+
 ### 2026-05-31 — Auto-tracking, configurable data source ✅
 - **Why:** the maintainer keeps newest/spoiler-season cards on rotating feature
   branches (e.g. `omens-of-the-third-age`), ahead of `develop`. A card the user
