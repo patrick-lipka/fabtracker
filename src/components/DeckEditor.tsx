@@ -36,6 +36,10 @@ export function DeckEditor({ deckId, cards, onBack, onChanged }: DeckEditorProps
   const [poolResults, setPoolResults] = useState<Card[] | null>(null);
   const [legalOnly, setLegalOnly] = useState(true);
   const [nameDraft, setNameDraft] = useState("");
+  const [preview, setPreview] = useState<{ card: Card; x: number; y: number } | null>(null);
+  const showPreview = (card: Card, e: { clientX: number; clientY: number }) =>
+    setPreview({ card, x: e.clientX, y: e.clientY });
+  const hidePreview = () => setPreview(null);
   const [poolView, setPoolView] = useState<ViewMode>(() => {
     const v = localStorage.getItem("fabtracker:deckPoolView");
     return v === "small" || v === "medium" || v === "large" || v === "list" ? v : "small";
@@ -185,12 +189,14 @@ export function DeckEditor({ deckId, cards, onBack, onChanged }: DeckEditorProps
           <Curve deck={deck} />
 
           {/* Card groups */}
-          <Section title="Weapons" entries={weapons} onChange={change} />
-          <Section title="Equipment" entries={equipment} onChange={change} />
+          <Section title="Weapons" entries={weapons} onChange={change} onHover={showPreview} onLeave={hidePreview} />
+          <Section title="Equipment" entries={equipment} onChange={change} onHover={showPreview} onLeave={hidePreview} />
           <Section
             title={`Main deck (${deck.legality.mainDeckCount})`}
             entries={main}
             onChange={change}
+            onHover={showPreview}
+            onLeave={hidePreview}
           />
 
           <button
@@ -204,6 +210,34 @@ export function DeckEditor({ deckId, cards, onBack, onChanged }: DeckEditorProps
           </button>
         </div>
       </aside>
+
+      <CardPreview preview={preview} />
+    </div>
+  );
+}
+
+/** Floating card-image preview shown when hovering a deck card. */
+function CardPreview({ preview }: { preview: { card: Card; x: number; y: number } | null }) {
+  if (!preview) return null;
+  const { card, x, y } = preview;
+  const width = 240;
+  // Show to the left of the cursor (the decklist sits on the right edge).
+  const left = Math.max(8, x - width - 20);
+  const top = Math.min(Math.max(8, y - 168), window.innerHeight - 348);
+  return (
+    <div className="pointer-events-none fixed z-50" style={{ left, top, width }}>
+      {card.imageUrl ? (
+        <img
+          src={card.imageUrl}
+          alt={card.name}
+          className="w-full rounded-xl shadow-2xl shadow-black/60 ring-1 ring-black/40"
+        />
+      ) : (
+        <div className="flex aspect-[2.5/3.5] w-full flex-col items-center justify-center rounded-xl border border-border bg-surface-2 p-4 text-center shadow-2xl">
+          <div className="font-bold text-white">{card.name}</div>
+          <div className="mt-1 text-xs text-muted">{card.typeText}</div>
+        </div>
+      )}
     </div>
   );
 }
@@ -280,10 +314,14 @@ function Section({
   title,
   entries,
   onChange,
+  onHover,
+  onLeave,
 }: {
   title: string;
   entries: DeckCardEntry[];
   onChange: (cardId: string, delta: number) => void;
+  onHover: (card: Card, e: { clientX: number; clientY: number }) => void;
+  onLeave: () => void;
 }) {
   if (entries.length === 0) return null;
   return (
@@ -293,7 +331,13 @@ function Section({
       </div>
       <div className="flex flex-col">
         {entries.map((e) => (
-          <div key={e.card.id} className="flex items-center gap-2 py-0.5 text-sm">
+          <div
+            key={e.card.id}
+            className="flex items-center gap-2 py-0.5 text-sm"
+            onMouseEnter={(ev) => onHover(e.card, ev)}
+            onMouseMove={(ev) => onHover(e.card, ev)}
+            onMouseLeave={onLeave}
+          >
             <span
               className="h-3.5 w-1 shrink-0 rounded-full"
               style={{ background: pitchColor(e.card.color) }}
