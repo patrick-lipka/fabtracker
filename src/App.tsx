@@ -83,7 +83,13 @@ export default function App() {
   }
 
   // If the resolved ref is ahead of our last sync, pull it automatically.
+  // Throttled to keep well under the GitHub API rate limit (resolving "auto"
+  // costs a few API calls), since this runs on every launch.
   function maybeAutoSync() {
+    const KEY = "fabtracker:lastUpdateCheck";
+    const last = Number(localStorage.getItem(KEY) || "0");
+    if (Date.now() - last < 6 * 60 * 60 * 1000) return; // at most every 6h
+    localStorage.setItem(KEY, String(Date.now()));
     checkUpdates()
       .then((u) => {
         if (u.updateAvailable) sync();

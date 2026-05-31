@@ -37,8 +37,9 @@ think Moxfield, but native-fast and offline-capable.
 - **Deck building** (Decks tab, MTG-Arena-style). Start a deck by picking a hero
   (all heroes, or owned-only), then build in a two-pane editor: a hero-legal
   card pool on the left, the deck on the right with a **cost curve + pitch
-  breakdown**, **format legality** (Classic Constructed / Blitz: size, copy
-  limits, class/talent), and a **missing-vs-collection** count.
+  breakdown**, **format legality** (Classic Constructed / Blitz / Silver Age:
+  size, copy limits, class/talent, bans / Living Legend / suspensions), a slots
+  overview, and a **missing-vs-collection** count.
 
 ### Where the data comes from
 

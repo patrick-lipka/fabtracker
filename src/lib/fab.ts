@@ -23,6 +23,36 @@ export function legalForHero(card: Card, hero: Card | null): boolean {
   return cardIdentity.every((w) => heroIdentity.has(w));
 }
 
+/** Whether a card is allowed in a format (legal pool, not banned/LL/suspended).
+ *  Unknown flags (undefined/null, pre-sync) don't restrict. */
+export function formatAllowed(card: Card, format: string): boolean {
+  const f =
+    format === "blitz"
+      ? { legal: card.blitzLegal, banned: card.blitzBanned, ll: card.blitzLivingLegend, susp: card.blitzSuspended }
+      : format === "silver_age"
+        ? { legal: card.silverAgeLegal, banned: card.silverAgeBanned, ll: null, susp: null }
+        : { legal: card.ccLegal, banned: card.ccBanned, ll: card.ccLivingLegend, susp: card.ccSuspended };
+  return f.legal !== false && f.banned !== true && f.ll !== true && f.susp !== true;
+}
+
+/** Full deck legality for the pool: hero class/talent AND format legality. */
+export function legalForDeck(card: Card, hero: Card | null, format: string): boolean {
+  return legalForHero(card, hero) && formatAllowed(card, format);
+}
+
+/** Whether a hero may lead a deck in the format: Blitz/Silver Age use young
+ *  heroes, Classic Constructed uses adult heroes (those without the Young tag),
+ *  plus format legality (bans, etc.). */
+export function heroLegalForFormat(hero: Card, format: string): boolean {
+  const young = hero.types.includes("Young");
+  if (format === "blitz" || format === "silver_age") {
+    if (!young) return false;
+  } else if (young) {
+    return false; // CC = adult heroes
+  }
+  return formatAllowed(hero, format);
+}
+
 /** Pitch strip color name → hex (matches the --color-pitch-* theme tokens). */
 const PITCH_HEX: Record<string, string> = {
   Red: "#d8403a",

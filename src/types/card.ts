@@ -47,6 +47,18 @@ export interface Card {
   imageUrl: string | null;
 
   printings: Printing[];
+
+  // Format legality flags (null = not synced yet). *_legal excludes bans.
+  ccLegal?: boolean | null;
+  blitzLegal?: boolean | null;
+  silverAgeLegal?: boolean | null;
+  ccBanned?: boolean | null;
+  blitzBanned?: boolean | null;
+  silverAgeBanned?: boolean | null;
+  ccLivingLegend?: boolean | null;
+  blitzLivingLegend?: boolean | null;
+  ccSuspended?: boolean | null;
+  blitzSuspended?: boolean | null;
 }
 
 // --- Collection -------------------------------------------------------------
@@ -106,7 +118,7 @@ export type ViewMode = "small" | "medium" | "large" | "list";
 
 // --- Decks ------------------------------------------------------------------
 
-export type DeckFormat = "cc" | "blitz";
+export type DeckFormat = "cc" | "blitz" | "silver_age";
 
 export interface DeckSummary {
   id: number;

@@ -14,7 +14,7 @@ import {
   searchCards,
   setDeckFormat,
 } from "../lib/api";
-import { legalForHero, pitchColor } from "../lib/fab";
+import { legalForDeck, pitchColor } from "../lib/fab";
 import { CardGrid } from "./CardGrid";
 import { CardList } from "./CardList";
 import { ViewModeToggle } from "./ViewModeToggle";
@@ -88,7 +88,8 @@ export function DeckEditor({ deckId, cards, onBack, onChanged }: DeckEditorProps
 
   const pool = useMemo(() => {
     const base = (poolResults ?? cards).filter((c) => !c.isHero);
-    if (legalOnly && deck?.hero) return base.filter((c) => legalForHero(c, deck.hero));
+    if (legalOnly && deck?.hero)
+      return base.filter((c) => legalForDeck(c, deck.hero, deck.format));
     return base;
   }, [poolResults, cards, legalOnly, deck]);
 
@@ -165,6 +166,7 @@ export function DeckEditor({ deckId, cards, onBack, onChanged }: DeckEditorProps
           >
             <option value="cc">CC</option>
             <option value="blitz">Blitz</option>
+            <option value="silver_age">Silver Age</option>
           </select>
         </div>
 
@@ -187,6 +189,9 @@ export function DeckEditor({ deckId, cards, onBack, onChanged }: DeckEditorProps
 
           {/* Curve + pitch */}
           <Curve deck={deck} />
+
+          {/* Slots */}
+          <Slots weapons={weapons} equipment={equipment} />
 
           {/* Card groups */}
           <Section title="Weapons" entries={weapons} onChange={change} onHover={showPreview} onLeave={hidePreview} />
@@ -253,7 +258,11 @@ function Legality({ deck }: { deck: DeckDetail }) {
     <div className="mb-3 rounded-lg border border-border bg-surface-2 p-2.5 text-xs">
       <div className="flex items-center justify-between">
         <span className="font-semibold uppercase tracking-wide text-muted">
-          {deck.format === "blitz" ? "Blitz" : "Classic Constructed"}
+          {deck.format === "blitz"
+            ? "Blitz"
+            : deck.format === "silver_age"
+              ? "Silver Age"
+              : "Classic Constructed"}
         </span>
         <span className={legality.ok ? "font-semibold text-emerald-400" : "font-semibold text-amber-400"}>
           {legality.ok ? "Legal" : "Not legal"}
@@ -305,6 +314,30 @@ function Curve({ deck }: { deck: DeckDetail }) {
             <span className="text-gray-200">{n}</span>
           </span>
         ))}
+      </div>
+    </div>
+  );
+}
+
+const EQUIP_SLOTS = ["Head", "Chest", "Arms", "Legs", "Off-Hand"];
+
+function Slots({ weapons, equipment }: { weapons: DeckCardEntry[]; equipment: DeckCardEntry[] }) {
+  if (weapons.length === 0 && equipment.length === 0) return null;
+  const qty = (es: DeckCardEntry[]) => es.reduce((n, e) => n + e.quantity, 0);
+  const slot = (s: string) => qty(equipment.filter((e) => e.card.types.includes(s)));
+  return (
+    <div className="mb-3 rounded-lg border border-border bg-surface-2 p-2.5 text-xs">
+      <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted">Slots</div>
+      <div className="flex flex-wrap gap-x-3 gap-y-1 text-gray-200">
+        <span>Weapons {qty(weapons)}</span>
+        {EQUIP_SLOTS.map((s) => (
+          <span key={s} className={slot(s) === 0 ? "text-muted" : undefined}>
+            {s} {slot(s)}
+          </span>
+        ))}
+      </div>
+      <div className="mt-1 text-[10px] text-muted">
+        You equip one item per slot each game; extras are legal as loadout options.
       </div>
     </div>
   );

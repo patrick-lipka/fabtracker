@@ -63,6 +63,47 @@ fn legal_for_hero(card: &Card, hero_identity: &HashSet<String>) -> bool {
     ci.is_empty() || ci.iter().all(|w| hero_identity.contains(w))
 }
 
+/// Per-format legality flags for a card (None where unknown / not yet synced).
+struct FormatRules {
+    legal: Option<bool>,
+    banned: Option<bool>,
+    living_legend: Option<bool>,
+    suspended: Option<bool>,
+}
+
+fn format_rules(card: &Card, format: &str) -> FormatRules {
+    match format {
+        "blitz" => FormatRules {
+            legal: card.blitz_legal,
+            banned: card.blitz_banned,
+            living_legend: card.blitz_living_legend,
+            suspended: card.blitz_suspended,
+        },
+        "silver_age" => FormatRules {
+            legal: card.silver_age_legal,
+            banned: card.silver_age_banned,
+            living_legend: None,
+            suspended: None,
+        },
+        _ => FormatRules {
+            legal: card.cc_legal,
+            banned: card.cc_banned,
+            living_legend: card.cc_living_legend,
+            suspended: card.cc_suspended,
+        },
+    }
+}
+
+/// Whether a card is allowed in the format (legal pool, not banned/LL/suspended).
+/// Unknown flags (`None`) don't restrict — they degrade to "allowed".
+fn format_allowed(card: &Card, format: &str) -> bool {
+    let r = format_rules(card, format);
+    r.legal != Some(false)
+        && r.banned != Some(true)
+        && r.living_legend != Some(true)
+        && r.suspended != Some(true)
+}
+
 // --------------------------------------------------------------------------
 // DTOs.
 // --------------------------------------------------------------------------
@@ -296,7 +337,7 @@ pub fn get_deck(conn: &Connection, id: i64) -> Result<DeckDetail, String> {
     for row in rows {
         let (card_id, quantity) = row.map_err(|e| format!("read row: {e}"))?;
         if let Some(card) = load_card(conn, &card_id)? {
-            let legal = legal_for_hero(&card, &hero_identity);
+            let legal = legal_for_hero(&card, &hero_identity) && format_allowed(&card, &format);
             cards.push(DeckCardEntry {
                 owned: owned.get(&card_id).copied().unwrap_or(0),
                 legal,
@@ -338,7 +379,7 @@ pub fn get_deck(conn: &Connection, id: i64) -> Result<DeckDetail, String> {
         .map(|(cost, &count)| CurvePoint { cost: cost as i64, count })
         .collect();
 
-    let legality = compute_legality(&format, main_deck_count, &cards, hero.as_ref());
+    let legality = compute_legality(&format, main_deck_count, &cards, hero.as_ref(), &hero_identity);
 
     Ok(DeckDetail {
         id,
@@ -354,19 +395,34 @@ pub fn get_deck(conn: &Connection, id: i64) -> Result<DeckDetail, String> {
     })
 }
 
+fn summarize(label: &str, mut names: Vec<&str>) -> String {
+    names.sort();
+    names.dedup();
+    let preview = names.iter().take(3).cloned().collect::<Vec<_>>().join(", ");
+    let more = if names.len() > 3 {
+        format!(" +{} more", names.len() - 3)
+    } else {
+        String::new()
+    };
+    format!("{label}: {preview}{more}")
+}
+
 fn compute_legality(
     format: &str,
     main_deck_count: i64,
     cards: &[DeckCardEntry],
     hero: Option<&Card>,
+    hero_identity: &HashSet<String>,
 ) -> Legality {
-    let blitz = format == "blitz";
-    let (size_ok, required) = if blitz {
-        (main_deck_count == 40, "40".to_string())
-    } else {
-        (main_deck_count >= 60, "60+".to_string())
+    // Construction rules per format:
+    //   CC          — >=60 main-deck cards, max 3 per name (adult hero).
+    //   Blitz       — exactly 40, max 2 per name (young hero).
+    //   Silver Age  — exactly 40, max 2 per name+color (young hero, SA pool).
+    let (size_ok, required, max_copies, per_color) = match format {
+        "blitz" => (main_deck_count == 40, "40".to_string(), 2, false),
+        "silver_age" => (main_deck_count == 40, "40".to_string(), 2, true),
+        _ => (main_deck_count >= 60, "60+".to_string(), 3, false),
     };
-    let max_copies = if blitz { 2 } else { 3 };
 
     let mut issues = Vec::new();
     if hero.is_none() {
@@ -376,35 +432,70 @@ fn compute_legality(
         issues.push(format!("Main deck has {main_deck_count} cards (needs {required})"));
     }
 
-    // Copy limits, grouped by card name (pitch variants share a name).
-    let mut by_name: HashMap<&str, i64> = HashMap::new();
+    // Copy limits. Pitch variants share a name (CC/Blitz); Silver Age counts by
+    // name + color, so different-pitch copies are limited independently.
+    let mut by_key: HashMap<String, (i64, &str)> = HashMap::new();
     for c in cards {
-        *by_name.entry(c.card.name.as_str()).or_insert(0) += c.quantity;
+        let key = if per_color {
+            format!("{}|{}", c.card.name, c.card.color.as_deref().unwrap_or(""))
+        } else {
+            c.card.name.clone()
+        };
+        let entry = by_key.entry(key).or_insert((0, c.card.name.as_str()));
+        entry.0 += c.quantity;
     }
-    let mut over: Vec<(&str, i64)> = by_name
-        .iter()
-        .filter(|(_, &n)| n > max_copies)
-        .map(|(&name, &n)| (name, n))
+    let mut over: Vec<(&str, i64)> = by_key
+        .values()
+        .filter(|(n, _)| *n > max_copies)
+        .map(|(n, name)| (*name, *n))
         .collect();
     over.sort();
+    over.dedup();
     for (name, n) in over {
         issues.push(format!("{name}: {n} copies (max {max_copies})"));
     }
 
-    // Hero legality.
-    let illegal: Vec<&str> = cards
-        .iter()
-        .filter(|c| !c.legal)
-        .map(|c| c.card.name.as_str())
-        .collect();
-    if !illegal.is_empty() {
-        let preview = illegal.iter().take(3).cloned().collect::<Vec<_>>().join(", ");
-        let more = if illegal.len() > 3 {
-            format!(" +{} more", illegal.len() - 3)
-        } else {
-            String::new()
-        };
-        issues.push(format!("Off-class for hero: {preview}{more}"));
+    // Hero must be legal in the format too.
+    if let Some(h) = hero {
+        let r = format_rules(h, format);
+        if r.banned == Some(true) {
+            issues.push(format!("Hero {} is banned in this format", h.name));
+        } else if r.living_legend == Some(true) {
+            issues.push(format!("Hero {} is Living Legend in this format", h.name));
+        } else if r.legal == Some(false) {
+            issues.push(format!("Hero {} is not legal in this format", h.name));
+        }
+    }
+
+    // Per-card reasons (class/talent + format bans/LL/suspensions).
+    let (mut off_class, mut banned, mut ll, mut susp, mut not_legal) =
+        (Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new());
+    for c in cards {
+        let name = c.card.name.as_str();
+        if !legal_for_hero(&c.card, hero_identity) {
+            off_class.push(name);
+        }
+        let r = format_rules(&c.card, format);
+        if r.banned == Some(true) {
+            banned.push(name);
+        } else if r.living_legend == Some(true) {
+            ll.push(name);
+        } else if r.suspended == Some(true) {
+            susp.push(name);
+        } else if r.legal == Some(false) {
+            not_legal.push(name);
+        }
+    }
+    for (label, list) in [
+        ("Off-class for hero", off_class),
+        ("Banned", banned),
+        ("Living Legend", ll),
+        ("Suspended", susp),
+        ("Not legal in format", not_legal),
+    ] {
+        if !list.is_empty() {
+            issues.push(summarize(label, list));
+        }
     }
 
     Legality {
@@ -449,6 +540,7 @@ mod tests {
             sets: vec![],
             image_url: None,
             printings: vec![],
+            ..Default::default()
         }
     }
 
@@ -511,6 +603,36 @@ mod tests {
 
         delete_deck(&conn, id).unwrap();
         assert!(list_decks(&conn).unwrap().is_empty());
+    }
+
+    #[test]
+    fn format_bans_and_silver_age() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
+        db::run_migrations(&mut conn).unwrap();
+
+        let mut banned = mk("b", "Banned Card", &["Ninja", "Action"], Some(0));
+        banned.cc_banned = Some(true);
+        let mut not_sa = mk("s", "Modern Card", &["Ninja", "Action"], Some(0));
+        not_sa.silver_age_legal = Some(false);
+        db::replace_cards(
+            &mut conn,
+            &[hero("H", "Katsu", &["Ninja", "Hero"]), banned, not_sa],
+        )
+        .unwrap();
+
+        let id = create_deck(&conn, "T", "cc", "H").unwrap();
+        adjust_deck_card(&conn, id, "b", 1).unwrap();
+        let d = get_deck(&conn, id).unwrap();
+        assert!(d.legality.issues.iter().any(|i| i.starts_with("Banned")));
+        assert!(!d.cards.iter().find(|c| c.card.id == "b").unwrap().legal);
+
+        // In Silver Age the CC-banned card is fine, but the non-SA card is not.
+        set_deck_format(&conn, id, "silver_age").unwrap();
+        adjust_deck_card(&conn, id, "s", 1).unwrap();
+        let d = get_deck(&conn, id).unwrap();
+        assert!(d.cards.iter().find(|c| c.card.id == "b").unwrap().legal);
+        assert!(d.legality.issues.iter().any(|i| i.starts_with("Not legal in format")));
     }
 }
 

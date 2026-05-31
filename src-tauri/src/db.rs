@@ -279,6 +279,7 @@ mod tests {
                 image_url: None,
                 released: None,
             }],
+            ..Default::default()
         }
     }
 
@@ -318,6 +319,7 @@ mod tests {
             sets: vec![],
             image_url: None,
             printings: vec![],
+            ..Default::default()
         }
     }
 

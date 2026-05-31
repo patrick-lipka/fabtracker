@@ -7,6 +7,30 @@ The roadmap below it is the north star; the original vision follows.
 
 ## Log
 
+### 2026-06-01 — Richer deck legality (bans/LL/suspended, Silver Age) ✅
+- Ingested per-format legality flags from `card.json` onto `Card` (Option<bool>,
+  so older cached cards degrade to "unknown"): `*_legal`, `*_banned`,
+  `*_living_legend`, `*_suspended` for CC / Blitz / Silver Age.
+- `deck.rs` legality now flags, per the deck's format: cards **not legal**,
+  **banned**, **Living Legend**, or **suspended** (incl. the hero), on top of
+  size + copy limits + class/talent. Per-card `legal` (pool filter + red
+  highlight) factors format legality too (`formatAllowed`/`legalForDeck` mirror
+  in `fab.ts`).
+- **Silver Age** format added (Blitz-shaped per LSS: young hero, 40-card deck,
+  **max 2 per name+color**, Silver Age pool/bans). Format selector now CC /
+  Blitz / Silver Age.
+- **Deck creation is now format-first**: pick the format, then the hero picker
+  shows only that format's heroes (Blitz/Silver Age → young, CC → adult, via the
+  `Young` type tag + ban flags), then the editor pool filters to legal cards.
+- **Slots overview** in the deck panel (Weapons + Head/Chest/Arms/Legs/Off-Hand
+  counts) — guidance, not a hard cap (FaB doesn't limit equipment per slot at
+  construction).
+- **Sync resilience:** if the GitHub branch-resolution API is unavailable (e.g.
+  rate-limited), sync falls back to the raw CDN (not rate-limited) using the
+  last-synced branch; the launch update-check is throttled to once / 6 h.
+- **Re-sync required** to populate the new flags. Tests: `format_bans_and_silver_age`
+  + the network test asserts flags parse.
+
 ### 2026-06-01 — Step 6: deck building + My Decks tab ✅
 - Backend: migration v4 (`decks`, `deck_cards`). New `deck.rs`: CRUD,
   `adjust_deck_card`, `list_heroes(ownedOnly)`, and `get_deck` computing resolved

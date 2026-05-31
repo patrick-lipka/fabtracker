@@ -404,6 +404,7 @@ mod tests {
             sets: vec![],
             image_url: None,
             printings: vec![],
+            ..Default::default()
         }
     }
 

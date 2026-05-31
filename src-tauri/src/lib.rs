@@ -92,7 +92,20 @@ async fn check_updates(db: State<'_, Db>) -> Result<UpdateInfo, String> {
             db::get_meta(&conn, META_SYNCED_SHA)?,
         )
     };
-    let info = catalog::resolve_ref(&mode).await?;
+    // If the GitHub API is unavailable (e.g. rate-limited), report "no update"
+    // rather than failing — the user can still sync.
+    let info = match catalog::resolve_ref(&mode).await {
+        Ok(i) => i,
+        Err(_) => {
+            return Ok(UpdateInfo {
+                update_available: false,
+                branch: String::new(),
+                sha: String::new(),
+                date: String::new(),
+                current_sha,
+            })
+        }
+    };
     Ok(UpdateInfo {
         update_available: current_sha.as_deref() != Some(info.sha.as_str()),
         branch: info.branch,
@@ -118,13 +131,28 @@ fn search_cards(
 /// synced branch/sha, and return the cards.
 #[tauri::command]
 async fn sync_cards(db: State<'_, Db>) -> Result<Vec<Card>, String> {
-    let mode = {
+    let (mode, last_branch) = {
         let conn = db.lock().map_err(|e| e.to_string())?;
-        db::get_meta(&conn, META_REF_MODE)?.unwrap_or_else(|| "auto".to_string())
+        (
+            db::get_meta(&conn, META_REF_MODE)?.unwrap_or_else(|| "auto".to_string()),
+            db::get_meta(&conn, META_SYNCED_BRANCH)?,
+        )
     };
-    // Network work — no DB lock held across awaits.
-    let info = catalog::resolve_ref(&mode).await?;
-    let cards = catalog::fetch_catalog_at(&info.sha).await?;
+    // Resolve the target ref. If the GitHub API is unavailable (e.g. rate-
+    // limited), fall back to a branch we can pull straight from the raw CDN,
+    // which isn't rate-limited — so syncing keeps working.
+    let (git_ref, branch, sha) = match catalog::resolve_ref(&mode).await {
+        Ok(info) => (info.sha.clone(), info.branch, info.sha),
+        Err(_) => {
+            let branch = if mode != "auto" && !mode.is_empty() {
+                mode.clone()
+            } else {
+                last_branch.unwrap_or_else(|| "develop".to_string())
+            };
+            (branch.clone(), branch, String::new())
+        }
+    };
+    let cards = catalog::fetch_catalog_at(&git_ref).await?;
     let now_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis() as i64)
@@ -133,8 +161,10 @@ async fn sync_cards(db: State<'_, Db>) -> Result<Vec<Card>, String> {
         let mut conn = db.lock().map_err(|e| e.to_string())?;
         db::replace_cards(&mut conn, &cards)?;
         db::set_last_synced(&conn, now_ms)?;
-        db::set_meta(&conn, META_SYNCED_SHA, &info.sha)?;
-        db::set_meta(&conn, META_SYNCED_BRANCH, &info.branch)?;
+        if !sha.is_empty() {
+            db::set_meta(&conn, META_SYNCED_SHA, &sha)?;
+        }
+        db::set_meta(&conn, META_SYNCED_BRANCH, &branch)?;
     }
     Ok(cards)
 }

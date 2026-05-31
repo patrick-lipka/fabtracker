@@ -1,8 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Card, DeckSummary, OwnedCounts } from "../types/card";
+import type { Card, DeckFormat, DeckSummary, OwnedCounts } from "../types/card";
 import { createDeck, listDecks, listHeroes } from "../lib/api";
+import { heroLegalForFormat } from "../lib/fab";
 import { CardGrid } from "./CardGrid";
 import { DeckEditor } from "./DeckEditor";
+
+const FORMATS: { value: DeckFormat; name: string; blurb: string }[] = [
+  { value: "cc", name: "Classic Constructed", blurb: "≥60 cards · max 3 of a name · adult heroes" },
+  { value: "blitz", name: "Blitz", blurb: "40 cards · max 2 of a name · young heroes" },
+  { value: "silver_age", name: "Silver Age", blurb: "40 cards · max 2 per name+color · young heroes · Silver Age pool" },
+];
 
 interface DecksTabProps {
   cards: Card[];
@@ -16,6 +23,7 @@ export function DecksTab({ cards, owned }: DecksTabProps) {
   const [screen, setScreen] = useState<Screen>("list");
   const [decks, setDecks] = useState<DeckSummary[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [newFormat, setNewFormat] = useState<DeckFormat | null>(null);
 
   function refreshDecks() {
     listDecks().then(setDecks).catch(() => {});
@@ -38,11 +46,16 @@ export function DecksTab({ cards, owned }: DecksTabProps) {
   }
 
   if (screen === "new") {
+    // Step 1: pick a format. Step 2: pick a hero legal in that format.
+    if (!newFormat) {
+      return <FormatPicker onCancel={() => setScreen("list")} onPick={setNewFormat} />;
+    }
     return (
       <HeroPicker
-        onCancel={() => setScreen("list")}
+        format={newFormat}
+        onCancel={() => setNewFormat(null)}
         onPick={(hero) =>
-          createDeck(hero.name, "cc", hero.id).then((id) => {
+          createDeck(hero.name, newFormat, hero.id).then((id) => {
             setEditingId(id);
             setScreen("editor");
           })
@@ -57,7 +70,10 @@ export function DecksTab({ cards, owned }: DecksTabProps) {
         <h2 className="text-base font-semibold text-white">My Decks</h2>
         <button
           type="button"
-          onClick={() => setScreen("new")}
+          onClick={() => {
+            setNewFormat(null);
+            setScreen("new");
+          }}
           className="rounded-lg bg-accent px-3 py-1.5 text-sm font-semibold text-black hover:brightness-110"
         >
           + New deck
@@ -106,10 +122,50 @@ export function DecksTab({ cards, owned }: DecksTabProps) {
   );
 }
 
-function HeroPicker({
+function FormatPicker({
   onPick,
   onCancel,
 }: {
+  onPick: (format: DeckFormat) => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex items-center gap-3 border-b border-border px-5 py-3">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-md border border-border px-2 py-1 text-xs text-gray-200 hover:border-accent"
+        >
+          ← Decks
+        </button>
+        <h2 className="text-base font-semibold text-white">Choose a format</h2>
+      </div>
+      <div className="flex flex-1 items-center justify-center p-8">
+        <div className="grid w-full max-w-xl gap-3">
+          {FORMATS.map((f) => (
+            <button
+              key={f.value}
+              type="button"
+              onClick={() => onPick(f.value)}
+              className="rounded-xl border border-border bg-surface-2 p-4 text-left transition hover:border-accent hover:bg-surface"
+            >
+              <div className="font-semibold text-white">{f.name}</div>
+              <div className="mt-0.5 text-sm text-muted">{f.blurb}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HeroPicker({
+  format,
+  onPick,
+  onCancel,
+}: {
+  format: DeckFormat;
   onPick: (hero: Card) => void;
   onCancel: () => void;
 }) {
@@ -123,8 +179,12 @@ function HeroPicker({
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return q ? heroes.filter((h) => h.name.toLowerCase().includes(q)) : heroes;
-  }, [heroes, query]);
+    return heroes
+      .filter((h) => heroLegalForFormat(h, format))
+      .filter((h) => (q ? h.name.toLowerCase().includes(q) : true));
+  }, [heroes, query, format]);
+
+  const formatName = FORMATS.find((f) => f.value === format)?.name ?? format;
 
   return (
     <div className="flex h-full flex-col">
@@ -134,9 +194,11 @@ function HeroPicker({
           onClick={onCancel}
           className="rounded-md border border-border px-2 py-1 text-xs text-gray-200 hover:border-accent"
         >
-          ← Decks
+          ← Format
         </button>
-        <h2 className="text-base font-semibold text-white">Choose a hero</h2>
+        <h2 className="text-base font-semibold text-white">
+          Choose a hero <span className="text-muted">· {formatName}</span>
+        </h2>
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}

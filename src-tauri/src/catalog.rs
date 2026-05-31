@@ -66,6 +66,27 @@ struct RawCard {
     type_text: String,
     #[serde(default)]
     printings: Vec<RawPrinting>,
+    // Format legality flags (legal flags exclude bans/suspensions).
+    #[serde(default)]
+    cc_legal: bool,
+    #[serde(default)]
+    blitz_legal: bool,
+    #[serde(default)]
+    silver_age_legal: bool,
+    #[serde(default)]
+    cc_banned: bool,
+    #[serde(default)]
+    blitz_banned: bool,
+    #[serde(default)]
+    silver_age_banned: bool,
+    #[serde(default)]
+    cc_living_legend: bool,
+    #[serde(default)]
+    blitz_living_legend: bool,
+    #[serde(default)]
+    cc_suspended: bool,
+    #[serde(default)]
+    blitz_suspended: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -301,6 +322,16 @@ fn map_card(
         sets,
         image_url,
         printings,
+        cc_legal: Some(c.cc_legal),
+        blitz_legal: Some(c.blitz_legal),
+        silver_age_legal: Some(c.silver_age_legal),
+        cc_banned: Some(c.cc_banned),
+        blitz_banned: Some(c.blitz_banned),
+        silver_age_banned: Some(c.silver_age_banned),
+        cc_living_legend: Some(c.cc_living_legend),
+        blitz_living_legend: Some(c.blitz_living_legend),
+        cc_suspended: Some(c.cc_suspended),
+        blitz_suspended: Some(c.blitz_suspended),
     }
 }
 
@@ -350,6 +381,9 @@ mod tests {
             .expect("Katsu should be present");
         assert!(katsu.is_hero);
         assert!(!katsu.printings.is_empty());
+        // Legality flags are populated.
+        assert!(katsu.cc_legal.is_some());
+        assert!(cards.iter().any(|c| c.cc_legal == Some(true)));
 
         // Release dates are populated and printings are ordered newest-first.
         assert!(cards

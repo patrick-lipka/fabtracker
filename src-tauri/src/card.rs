@@ -32,7 +32,7 @@ pub struct Printing {
 /// printed text (`costText`/...), because FaB stats can be `*`, `X`, `XX`, etc.
 /// `None` parsed value + `Some` text means "non-numeric"; both `None` means the
 /// stat is absent for this card.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Card {
     /// Stable unique id from the data source (a UUID-like string).
@@ -73,4 +73,18 @@ pub struct Card {
     pub image_url: Option<String>,
 
     pub printings: Vec<Printing>,
+
+    // Format legality flags from the data source. `None` means "not synced yet"
+    // (older cached cards) — legality checks skip unknown flags. A re-sync
+    // populates them. `*_legal` excludes bans/suspensions (those are separate).
+    pub cc_legal: Option<bool>,
+    pub blitz_legal: Option<bool>,
+    pub silver_age_legal: Option<bool>,
+    pub cc_banned: Option<bool>,
+    pub blitz_banned: Option<bool>,
+    pub silver_age_banned: Option<bool>,
+    pub cc_living_legend: Option<bool>,
+    pub blitz_living_legend: Option<bool>,
+    pub cc_suspended: Option<bool>,
+    pub blitz_suspended: Option<bool>,
 }

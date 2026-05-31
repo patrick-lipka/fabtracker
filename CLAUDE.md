@@ -62,7 +62,11 @@ Requires Rust ≥ 1.85 (`rustup update stable`) and Node ≥ 20.
   `legalForHero`). Commands: list_heroes, list_decks, create_deck, get_deck,
   rename_deck, set_deck_format, delete_deck, adjust_deck_card. Frontend:
   `DecksTab` (list → hero picker → editor) + `DeckEditor` (pool reuses
-  `CardGrid`). Deferred: bans/LL, slot limits, specialization, Commoner.
+  `CardGrid`). Legality covers format size + copy limits + hero class/talent +
+  per-format bans / Living Legend / suspensions (flags ingested onto `Card` as
+  `Option<bool>` — need a Re-sync to populate; `formatAllowed`/`legalForDeck`
+  mirror in `fab.ts`). Formats: CC / Blitz / Silver Age. Slots overview is
+  informational. Deferred: specialization cards, Commoner, hard slot caps.
 - Backend tests: `cd src-tauri && cargo test --lib` (search parser + end-to-end
   search + DB round-trip; no network). The real network fetch test is
   `#[ignore]`d: `cargo test -- --ignored`.
