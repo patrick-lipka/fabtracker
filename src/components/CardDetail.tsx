@@ -7,7 +7,8 @@ import {
   type CardCollectionEntry,
   type EntryKey,
 } from "../types/card";
-import { pitchColor, rarityColor, statDisplay } from "../lib/fab";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { cardmarketUrl, pitchColor, rarityColor, statDisplay } from "../lib/fab";
 
 interface CardDetailProps {
   card: Card | null;
@@ -79,6 +80,14 @@ export function CardDetail({
         <div>
           <h2 className="text-lg font-bold text-white">{card.name}</h2>
           <p className="text-sm text-muted">{card.typeText}</p>
+          <button
+            type="button"
+            onClick={() => openUrl(cardmarketUrl(card.name)).catch(() => {})}
+            title="Look up live EUR prices on Cardmarket"
+            className="mt-2 inline-flex items-center gap-1 rounded-md border border-border bg-surface-2 px-2.5 py-1 text-xs text-gray-200 hover:border-accent hover:text-white"
+          >
+            Cardmarket prices ↗
+          </button>
         </div>
 
         {/* Stat strip — each box with a numeric value searches for it. */}

@@ -34,6 +34,13 @@ export function rarityColor(rarity: string): string {
   return RARITY_HEX[rarity] ?? "#8b93a7";
 }
 
+/** A Cardmarket (EU) search URL for a card name — opens live EUR listings. */
+export function cardmarketUrl(name: string): string {
+  return `https://www.cardmarket.com/en/FleshAndBlood/Products/Search?searchString=${encodeURIComponent(
+    name,
+  )}`;
+}
+
 /**
  * Display a stat: the parsed number if present, otherwise the raw text
  * (e.g. "*", "X"), otherwise an em dash.
