@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Card, DeckCardEntry, DeckDetail, OwnedCounts } from "../types/card";
+import type {
+  Card,
+  DeckCardEntry,
+  DeckDetail,
+  OwnedCounts,
+  ViewMode,
+} from "../types/card";
 import {
   adjustDeckCard,
   deleteDeck,
@@ -10,6 +16,8 @@ import {
 } from "../lib/api";
 import { legalForHero, pitchColor } from "../lib/fab";
 import { CardGrid } from "./CardGrid";
+import { CardList } from "./CardList";
+import { ViewModeToggle } from "./ViewModeToggle";
 
 interface DeckEditorProps {
   deckId: number;
@@ -28,6 +36,13 @@ export function DeckEditor({ deckId, cards, onBack, onChanged }: DeckEditorProps
   const [poolResults, setPoolResults] = useState<Card[] | null>(null);
   const [legalOnly, setLegalOnly] = useState(true);
   const [nameDraft, setNameDraft] = useState("");
+  const [poolView, setPoolView] = useState<ViewMode>(() => {
+    const v = localStorage.getItem("fabtracker:deckPoolView");
+    return v === "small" || v === "medium" || v === "large" || v === "list" ? v : "small";
+  });
+  useEffect(() => {
+    localStorage.setItem("fabtracker:deckPoolView", poolView);
+  }, [poolView]);
 
   function refresh() {
     getDeck(deckId)
@@ -100,16 +115,26 @@ export function DeckEditor({ deckId, cards, onBack, onChanged }: DeckEditorProps
             <input type="checkbox" checked={legalOnly} onChange={(e) => setLegalOnly(e.target.checked)} />
             Legal only
           </label>
+          <ViewModeToggle mode={poolView} onChange={setPoolView} />
           <span className="whitespace-nowrap text-xs text-muted">{pool.length}</span>
         </div>
         <div className="min-h-0 flex-1">
-          <CardGrid
-            cards={pool}
-            selectedId={null}
-            onSelect={(c) => change(c.id, 1)}
-            quantities={deckQty}
-            size="small"
-          />
+          {poolView === "list" ? (
+            <CardList
+              cards={pool}
+              selectedId={null}
+              onSelect={(c) => change(c.id, 1)}
+              quantities={deckQty}
+            />
+          ) : (
+            <CardGrid
+              cards={pool}
+              selectedId={null}
+              onSelect={(c) => change(c.id, 1)}
+              quantities={deckQty}
+              size={poolView}
+            />
+          )}
         </div>
       </div>
 
