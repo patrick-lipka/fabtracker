@@ -519,6 +519,24 @@ mod tests {
     }
 
     #[test]
+    fn binder_search_filter() {
+        let conn = setup();
+        create_binder(&conn, "Trades").unwrap();
+        let trades = list_binders(&conn).unwrap()[1].id;
+        adjust_entry(&conn, trades, &ek("x", "xp", "Standard", "NM"), 1).unwrap();
+
+        // `binder:trades` over the catalog returns only the card in Trades.
+        let names: Vec<String> = db::search_cards(&conn, "binder:trades", false)
+            .unwrap()
+            .into_iter()
+            .map(|c| c.name)
+            .collect();
+        assert_eq!(names, ["Snatch"]); // card "x" is Snatch in setup()
+        // The seeded "Main" binder is empty → no matches.
+        assert!(db::search_cards(&conn, "binder:main", false).unwrap().is_empty());
+    }
+
+    #[test]
     fn deleting_binder_cascades() {
         let conn = setup();
         create_binder(&conn, "Trades").unwrap();

@@ -7,6 +7,14 @@ The roadmap below it is the north star; the original vision follows.
 
 ## Log
 
+### 2026-06-01 — `binder:` search filter + Cardmarket link ✅
+- `binder:<name>` (alias `bin:`) restricts results to cards held in a binder
+  whose name matches — `search::BINDER_CLAUSE` (EXISTS over `collection_entries`
+  joined to `binders`), works in Browse and Collection via `build_where`. Added
+  to the syntax popup. Tests: `binder_field`, `binder_search_filter`.
+- Detail pane: a "Cardmarket prices ↗" button opens a Cardmarket (EU) search
+  for the card in the system browser (opener plugin). No price data stored.
+
 ### 2026-06-01 — Card view options (image sizes + list) ✅
 - Header toggle `[S] [M] [L] [☰]` (shared by Browse and Collection, persisted in
   localStorage): **small / medium (default) / large** image sizes, plus a

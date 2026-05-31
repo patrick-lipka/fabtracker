@@ -14,11 +14,11 @@ const EXAMPLES: [string, string][] = [
   ["kw:dominate cost<=2", "Cheap cards with dominate"],
   ["color:blue r:majestic", "Blue majestics"],
   ["cn:wtr043", "A specific collector number"],
-  ["set:wtr t:hero", "Heroes from Welcome to Rathe"],
+  ["binder:trades", "Cards in a binder (by name)"],
 ];
 
 const FIELDS =
-  "name, text/o, type/t, class/c, keyword/kw, trait, set/s, cn/num, rarity/r, color, have · " +
+  "name, text/o, type/t, class/c, keyword/kw, trait, set/s, cn/num, rarity/r, color, have, binder · " +
   "numeric (: = > < >= <=): pitch, cost, power/pow, defense/def, health/hp, intellect/int, arcane";
 
 /**

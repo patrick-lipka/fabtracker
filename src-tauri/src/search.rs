@@ -25,6 +25,11 @@ pub const OWNED_CLAUSE: &str =
 const PRINTING_ID_MATCH: &str =
     "EXISTS (SELECT 1 FROM json_each(data,'$.printings') WHERE LOWER(json_extract(value,'$.id')) LIKE ?)";
 
+/// True for cards held in a binder whose name matches `?`. Used by `binder:`.
+const BINDER_CLAUSE: &str = "EXISTS (SELECT 1 FROM collection_entries ce \
+    JOIN binders b ON b.id = ce.binder_id \
+    WHERE ce.card_id = cards.id AND LOWER(b.name) LIKE ?)";
+
 /// Build a SQL `WHERE` clause and its bound parameters for `query`.
 /// An empty / whitespace query yields `"1=1"` (match everything).
 pub fn build_where(query: &str) -> (String, Vec<Value>) {
@@ -147,6 +152,8 @@ fn field_fragment(key: &str, op: &str, value: &str) -> Option<(String, Vec<Value
         // `have:` / `owned:` — restrict to cards in the collection. The value is
         // ignored (presence is the filter), so `have:1`, `have:yes`, etc. work.
         "have" | "owned" | "own" => Some((OWNED_CLAUSE.into(), vec![])),
+        // `binder:` — restrict to cards held in a binder whose name matches.
+        "binder" | "bin" => Some((BINDER_CLAUSE.into(), vec![like(value)])),
         _ => numeric_fragment(&key, op, value),
     }
 }
@@ -223,5 +230,12 @@ mod tests {
         let (sql, params) = build_where("cn:MST131");
         assert!(sql.contains("printings"));
         assert_eq!(params, vec![Value::Text("%mst131%".into())]);
+    }
+
+    #[test]
+    fn binder_field() {
+        let (sql, params) = build_where("binder:Trades");
+        assert!(sql.contains("binders"));
+        assert_eq!(params, vec![Value::Text("%trades%".into())]);
     }
 }
