@@ -40,3 +40,16 @@ body {
   scrollbar-width: thin;
   scrollbar-color: var(--color-border) transparent;
 }
+
+/* Deck notes (Milkdown Crepe): fill the panel width and use a smaller font. */
+.deck-notes .milkdown {
+  width: 100%;
+  padding: 0;
+}
+.deck-notes .milkdown .ProseMirror {
+  max-width: none !important;
+  width: 100%;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}

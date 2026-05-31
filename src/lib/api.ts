@@ -178,6 +178,11 @@ export function deleteDeck(id: number): Promise<void> {
   return invoke("delete_deck", { id });
 }
 
+/** Save a deck's Markdown build / piloting notes. */
+export function setDeckNotes(id: number, notes: string): Promise<void> {
+  return invoke("set_deck_notes", { id, notes });
+}
+
 /** Change a card's quantity in a deck by `delta` (removed at 0). */
 export function adjustDeckCard(deckId: number, cardId: string, delta: number): Promise<void> {
   return invoke("adjust_deck_card", { deckId, cardId, delta });

@@ -99,6 +99,8 @@ const MIGRATIONS_SLICE: &[M<'static>] = &[
             PRIMARY KEY (deck_id, card_id)
          );",
     ),
+    // v5 — free-form Markdown notes per deck (build / piloting notes).
+    M::up("ALTER TABLE decks ADD COLUMN notes TEXT NOT NULL DEFAULT '';"),
 ];
 
 const LAST_SYNCED_KEY: &str = "last_synced_ms";

@@ -39,7 +39,7 @@ think Moxfield, but native-fast and offline-capable.
   card pool on the left, the deck on the right with a **cost curve + pitch
   breakdown**, **format legality** (Classic Constructed / Blitz / Silver Age:
   size, copy limits, class/talent, bans / Living Legend / suspensions), a slots
-  overview, and a **missing-vs-collection** count.
+  overview, **per-deck Markdown notes** (live WYSIWYG), and a **missing-vs-collection** count.
 
 ### Where the data comes from
 
@@ -102,7 +102,7 @@ npm run tauri build    # produce a distributable desktop binary
 ```
 fabtracker/
 ├── src/                      # React + TypeScript frontend
-│   ├── components/           # CardGrid, CardList, CardTile, CardDetail, SearchBar, BinderBar, BinderMenu, DataSourceButton, DecksTab, DeckEditor
+│   ├── components/           # CardGrid, CardList, CardTile, CardDetail, SearchBar, BinderBar, BinderMenu, DataSourceButton, DecksTab, DeckEditor, NotesEditor
 │   ├── lib/                  # api.ts (Tauri IPC), fab.ts (display helpers)
 │   ├── types/card.ts         # Card type — mirror of the Rust model
 │   └── App.tsx               # layout + state

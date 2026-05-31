@@ -170,6 +170,8 @@ pub struct DeckDetail {
     /// Total copies missing relative to the collection.
     pub missing: i64,
     pub legality: Legality,
+    /// Free-form Markdown build / piloting notes.
+    pub notes: String,
 }
 
 // --------------------------------------------------------------------------
@@ -208,6 +210,15 @@ pub fn set_deck_format(conn: &Connection, id: i64, format: &str) -> Result<(), S
 pub fn delete_deck(conn: &Connection, id: i64) -> Result<(), String> {
     conn.execute("DELETE FROM decks WHERE id = ?1", params![id])
         .map_err(|e| format!("delete deck: {e}"))?;
+    Ok(())
+}
+
+pub fn set_deck_notes(conn: &Connection, id: i64, notes: &str) -> Result<(), String> {
+    conn.execute(
+        "UPDATE decks SET notes = ?1, updated_at = ?2 WHERE id = ?3",
+        params![notes, now_ms(), id],
+    )
+    .map_err(|e| format!("set notes: {e}"))?;
     Ok(())
 }
 
@@ -309,11 +320,11 @@ pub fn list_heroes(conn: &Connection, owned_only: bool) -> Result<Vec<Card>, Str
 }
 
 pub fn get_deck(conn: &Connection, id: i64) -> Result<DeckDetail, String> {
-    let (name, format, hero_id): (String, String, String) = conn
+    let (name, format, hero_id, notes): (String, String, String, String) = conn
         .query_row(
-            "SELECT name, format, hero_id FROM decks WHERE id = ?1",
+            "SELECT name, format, hero_id, notes FROM decks WHERE id = ?1",
             params![id],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
         )
         .map_err(|e| format!("load deck: {e}"))?;
 
@@ -392,6 +403,7 @@ pub fn get_deck(conn: &Connection, id: i64) -> Result<DeckDetail, String> {
         pitch_counts: pitch,
         missing,
         legality,
+        notes,
     })
 }
 

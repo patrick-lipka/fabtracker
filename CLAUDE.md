@@ -66,7 +66,7 @@ Requires Rust ≥ 1.85 (`rustup update stable`) and Node ≥ 20.
   per-format bans / Living Legend / suspensions (flags ingested onto `Card` as
   `Option<bool>` — need a Re-sync to populate; `formatAllowed`/`legalForDeck`
   mirror in `fab.ts`). Formats: CC / Blitz / Silver Age. Slots overview is
-  informational. Deferred: specialization cards, Commoner, hard slot caps.
+  informational. Deferred: specialization cards, Commoner, hard slot caps. Per-deck Markdown notes via Milkdown Crepe (`NotesEditor`); `set_deck_notes` + `notes` column (migration v5).
 - Backend tests: `cd src-tauri && cargo test --lib` (search parser + end-to-end
   search + DB round-trip; no network). The real network fetch test is
   `#[ignore]`d: `cargo test -- --ignored`.

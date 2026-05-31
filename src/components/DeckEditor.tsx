@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   Card,
   DeckCardEntry,
@@ -13,10 +13,12 @@ import {
   renameDeck,
   searchCards,
   setDeckFormat,
+  setDeckNotes,
 } from "../lib/api";
 import { legalForDeck, pitchColor } from "../lib/fab";
 import { CardGrid } from "./CardGrid";
 import { CardList } from "./CardList";
+import { NotesEditor } from "./NotesEditor";
 import { ViewModeToggle } from "./ViewModeToggle";
 
 interface DeckEditorProps {
@@ -36,6 +38,15 @@ export function DeckEditor({ deckId, cards, onBack, onChanged }: DeckEditorProps
   const [poolResults, setPoolResults] = useState<Card[] | null>(null);
   const [legalOnly, setLegalOnly] = useState(true);
   const [nameDraft, setNameDraft] = useState("");
+  const [panelTab, setPanelTab] = useState<"deck" | "notes">("deck");
+  const notesTimer = useRef<number | null>(null);
+  const saveNotes = (md: string) => {
+    if (notesTimer.current) clearTimeout(notesTimer.current);
+    // Not cleared on unmount — a pending save still fires after you navigate away.
+    notesTimer.current = window.setTimeout(() => {
+      setDeckNotes(deckId, md).catch(() => {});
+    }, 700);
+  };
   const [preview, setPreview] = useState<{ card: Card; x: number; y: number } | null>(null);
   const showPreview = (card: Card, e: { clientX: number; clientY: number }) =>
     setPreview({ card, x: e.clientX, y: e.clientY });
@@ -156,8 +167,16 @@ export function DeckEditor({ deckId, cards, onBack, onChanged }: DeckEditorProps
           <input
             value={nameDraft}
             onChange={(e) => setNameDraft(e.target.value)}
-            onBlur={() => nameDraft.trim() && nameDraft !== deck.name && renameDeck(deckId, nameDraft.trim()).then(() => { refresh(); onChanged(); })}
-            className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 py-1 text-sm font-semibold text-white hover:border-border focus:border-accent focus:outline-none"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.currentTarget.blur();
+            }}
+            onBlur={() => {
+              const n = nameDraft.trim();
+              if (n && n !== deck.name) renameDeck(deckId, n).then(() => { refresh(); onChanged(); });
+              else setNameDraft(deck.name);
+            }}
+            title="Rename deck"
+            className="min-w-0 flex-1 rounded-md border border-border/60 bg-surface-2 px-2 py-1 text-sm font-semibold text-white hover:border-border focus:border-accent focus:outline-none"
           />
           <select
             value={deck.format}
@@ -170,7 +189,28 @@ export function DeckEditor({ deckId, cards, onBack, onChanged }: DeckEditorProps
           </select>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex gap-1 border-b border-border px-3 py-1.5 text-xs">
+            {(["deck", "notes"] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setPanelTab(t)}
+                className={`rounded-md px-2.5 py-1 capitalize ${
+                  panelTab === t ? "bg-accent font-semibold text-black" : "text-gray-300 hover:text-white"
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+
+          {panelTab === "notes" ? (
+            <div className="min-h-0 flex-1">
+              <NotesEditor key={deckId} initial={deck.notes} onChange={saveNotes} />
+            </div>
+          ) : (
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
           {/* Hero */}
           {deck.hero && (
             <div className="mb-3 flex items-center gap-3">
@@ -213,6 +253,8 @@ export function DeckEditor({ deckId, cards, onBack, onChanged }: DeckEditorProps
           >
             Delete deck
           </button>
+            </div>
+          )}
         </div>
       </aside>
 

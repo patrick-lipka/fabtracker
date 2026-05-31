@@ -167,4 +167,5 @@ export interface DeckDetail {
   pitchCounts: PitchCounts;
   missing: number;
   legality: Legality;
+  notes: string;
 }

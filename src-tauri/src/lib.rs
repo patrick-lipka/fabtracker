@@ -346,6 +346,12 @@ fn delete_deck(id: i64, db: State<'_, Db>) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn set_deck_notes(id: i64, notes: String, db: State<'_, Db>) -> Result<(), String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    deck::set_deck_notes(&conn, id, &notes)
+}
+
+#[tauri::command]
 fn adjust_deck_card(
     deck_id: i64,
     card_id: String,
@@ -396,6 +402,7 @@ pub fn run() {
             rename_deck,
             set_deck_format,
             delete_deck,
+            set_deck_notes,
             adjust_deck_card,
         ])
         .run(tauri::generate_context!())

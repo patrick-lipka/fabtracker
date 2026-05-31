@@ -7,6 +7,16 @@ The roadmap below it is the north star; the original vision follows.
 
 ## Log
 
+### 2026-06-01 — Deck notes (WYSIWYG Markdown) + clearer name editing ✅
+- Markdown `notes` column on decks (migration v5) + `set_deck_notes` command;
+  `get_deck` returns it.
+- Deck editor: a **Deck / Notes** tab in the right panel. Notes is an
+  Obsidian-style **live WYSIWYG Markdown editor** (Milkdown "Crepe", nord-dark),
+  round-tripping to Markdown, autosaved (debounced 700 ms; a pending save still
+  fires after navigating away). New dep: `@milkdown/crepe`.
+- Deck name is a clearly-editable field (Enter or blur to save; reverts if
+  cleared).
+
 ### 2026-06-01 — Richer deck legality (bans/LL/suspended, Silver Age) ✅
 - Ingested per-format legality flags from `card.json` onto `Card` (Option<bool>,
   so older cached cards degrade to "unknown"): `*_legal`, `*_banned`,
