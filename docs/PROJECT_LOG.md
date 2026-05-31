@@ -14,7 +14,9 @@ The roadmap below it is the north star; the original vision follows.
   cost, P/D, rarity, owned qty).
 - `CardGrid` parameterized by `size` (min tile width + column cap); **large** is
   capped at **2 columns at any window width**. New `CardList` component
-  (virtualized rows, right-click / + binder menu, owned-qty column).
+  (virtualized rows, right-click / + binder menu, owned-qty column). List
+  columns are **sortable** — click a heading to sort, click again to flip
+  direction (missing values sort last; rarity sorts by rank).
 
 ### 2026-05-31 — Auto-tracking, configurable data source ✅
 - **Why:** the maintainer keeps newest/spoiler-season cards on rotating feature
