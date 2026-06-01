@@ -7,6 +7,18 @@ The roadmap below it is the north star; the original vision follows.
 
 ## Log
 
+### 2026-06-01 — Fabrary-style deck statistics ✅
+- New `DeckStats` (in the deck editor's Deck tab), modelled on Fabrary's stats:
+  Cards / Resources / Avg cost summary; **pitch** distribution (Red/Yellow/Blue
+  counts + % + blank-pitch + avg pitch); **cost curve**; **card types** (attack
+  actions, attack/defense reactions, instants, other actions); **Attacks**
+  (count·power·avg) and **Blocks** (count·def·avg·block 3+). Computed client-side
+  from the deck's cards.
+- Fixed the cost-curve bars (were collapsing — percentage height on a flex child
+  with no definite parent height → now computed pixel heights).
+- Not (yet) reproduced from Fabrary: the hypergeometric hand-probability
+  calculator (a larger standalone feature).
+
 ### 2026-06-01 — Deck notes (WYSIWYG Markdown) + clearer name editing ✅
 - Markdown `notes` column on decks (migration v5) + `set_deck_notes` command;
   `get_deck` returns it.

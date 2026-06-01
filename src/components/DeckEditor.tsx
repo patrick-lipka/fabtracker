@@ -18,6 +18,7 @@ import {
 import { legalForDeck, pitchColor } from "../lib/fab";
 import { CardGrid } from "./CardGrid";
 import { CardList } from "./CardList";
+import { DeckStats } from "./DeckStats";
 import { NotesEditor } from "./NotesEditor";
 import { ViewModeToggle } from "./ViewModeToggle";
 
@@ -227,8 +228,8 @@ export function DeckEditor({ deckId, cards, onBack, onChanged }: DeckEditorProps
           {/* Legality */}
           <Legality deck={deck} />
 
-          {/* Curve + pitch */}
-          <Curve deck={deck} />
+          {/* Statistics */}
+          <DeckStats deck={deck} />
 
           {/* Slots */}
           <Slots weapons={weapons} equipment={equipment} />
@@ -323,39 +324,6 @@ function Legality({ deck }: { deck: DeckDetail }) {
         ) : (
           <span className="text-emerald-400">You own every card in this deck</span>
         )}
-      </div>
-    </div>
-  );
-}
-
-function Curve({ deck }: { deck: DeckDetail }) {
-  const max = Math.max(1, ...deck.curve.map((c) => c.count));
-  const pitch = deck.pitchCounts;
-  return (
-    <div className="mb-3 rounded-lg border border-border bg-surface-2 p-2.5">
-      <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted">
-        Cost curve
-      </div>
-      <div className="flex h-16 items-end gap-1">
-        {deck.curve.map((p) => (
-          <div key={p.cost} className="flex flex-1 flex-col items-center gap-0.5">
-            <span className="text-[9px] text-muted">{p.count || ""}</span>
-            <div
-              className="w-full rounded-sm bg-accent/70"
-              style={{ height: `${(p.count / max) * 100}%`, minHeight: p.count ? 2 : 0 }}
-            />
-            <span className="text-[9px] text-muted">{p.cost === 6 ? "6+" : p.cost}</span>
-          </div>
-        ))}
-      </div>
-      <div className="mt-2 flex items-center gap-3 text-xs">
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted">Pitch</span>
-        {([["1", pitch.one], ["2", pitch.two], ["3", pitch.three]] as const).map(([p, n]) => (
-          <span key={p} className="flex items-center gap-1">
-            <span className="h-2.5 w-2.5 rounded-full" style={{ background: pitchColor(p === "1" ? "Red" : p === "2" ? "Yellow" : "Blue") }} />
-            <span className="text-gray-200">{n}</span>
-          </span>
-        ))}
       </div>
     </div>
   );
