@@ -7,6 +7,14 @@ The roadmap below it is the north star; the original vision follows.
 
 ## Log
 
+### 2026-06-02 — Deck view (card gallery) as the default; Edit Deck button ✅
+- Opening a deck now shows a read-only **deck view** (`DeckView`): full card
+  images grouped Hero / Weapons / Equipment / Main deck (×N badges) on the left,
+  and the stats panel (legality + missing + `DeckStats`) on the right.
+- An **Edit deck** button opens the builder (`DeckEditor`) as before; its back
+  button ("← Done") returns to the view. New decks still open the builder;
+  deleting returns to the list. Navigation is now list → view → editor.
+
 ### 2026-06-01 — Fabrary-style deck statistics ✅
 - New `DeckStats` (in the deck editor's Deck tab), modelled on Fabrary's stats:
   Cards / Resources / Avg cost summary; **pitch** distribution (Red/Yellow/Blue

@@ -4,6 +4,7 @@ import { createDeck, listDecks, listHeroes } from "../lib/api";
 import { heroLegalForFormat } from "../lib/fab";
 import { CardGrid } from "./CardGrid";
 import { DeckEditor } from "./DeckEditor";
+import { DeckView } from "./DeckView";
 
 const FORMATS: { value: DeckFormat; name: string; blurb: string }[] = [
   { value: "cc", name: "Classic Constructed", blurb: "≥60 cards · max 3 of a name · adult heroes" },
@@ -16,7 +17,7 @@ interface DecksTabProps {
   owned: OwnedCounts;
 }
 
-type Screen = "list" | "new" | "editor";
+type Screen = "list" | "new" | "view" | "editor";
 
 /** The "Decks" tab: deck list → hero picker → editor. */
 export function DecksTab({ cards, owned }: DecksTabProps) {
@@ -30,6 +31,19 @@ export function DecksTab({ cards, owned }: DecksTabProps) {
   }
   useEffect(refreshDecks, []);
 
+  if (screen === "view" && editingId !== null) {
+    return (
+      <DeckView
+        deckId={editingId}
+        onEdit={() => setScreen("editor")}
+        onBack={() => {
+          setScreen("list");
+          refreshDecks();
+        }}
+      />
+    );
+  }
+
   if (screen === "editor" && editingId !== null) {
     return (
       <DeckEditor
@@ -37,10 +51,14 @@ export function DecksTab({ cards, owned }: DecksTabProps) {
         cards={cards}
         owned={owned}
         onBack={() => {
-          setScreen("list");
+          setScreen("view");
           refreshDecks();
         }}
         onChanged={refreshDecks}
+        onDeleted={() => {
+          setScreen("list");
+          refreshDecks();
+        }}
       />
     );
   }
@@ -94,7 +112,7 @@ export function DecksTab({ cards, owned }: DecksTabProps) {
                 type="button"
                 onClick={() => {
                   setEditingId(d.id);
-                  setScreen("editor");
+                  setScreen("view");
                 }}
                 className="flex items-center gap-3 rounded-xl border border-border bg-surface-2 p-3 text-left transition hover:-translate-y-0.5 hover:border-accent"
               >

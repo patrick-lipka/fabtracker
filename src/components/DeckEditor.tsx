@@ -27,13 +27,16 @@ interface DeckEditorProps {
   /** Catalog cards for the pool when there's no active search. */
   cards: Card[];
   owned: OwnedCounts;
+  /** Leave the editor (back to the deck view). */
   onBack: () => void;
   /** Notify the parent (deck list) that something changed. */
   onChanged: () => void;
+  /** The deck was deleted — go somewhere that isn't this deck. */
+  onDeleted: () => void;
 }
 
 /** MTG-Arena-style editor: legal card pool on the left, the deck on the right. */
-export function DeckEditor({ deckId, cards, onBack, onChanged }: DeckEditorProps) {
+export function DeckEditor({ deckId, cards, onBack, onChanged, onDeleted }: DeckEditorProps) {
   const [deck, setDeck] = useState<DeckDetail | null>(null);
   const [poolQuery, setPoolQuery] = useState("");
   const [poolResults, setPoolResults] = useState<Card[] | null>(null);
@@ -163,7 +166,7 @@ export function DeckEditor({ deckId, cards, onBack, onChanged }: DeckEditorProps
             onClick={onBack}
             className="rounded-md border border-border px-2 py-1 text-xs text-gray-200 hover:border-accent"
           >
-            ← Decks
+            ← Done
           </button>
           <input
             value={nameDraft}
@@ -247,9 +250,7 @@ export function DeckEditor({ deckId, cards, onBack, onChanged }: DeckEditorProps
 
           <button
             type="button"
-            onClick={() => {
-              if (confirmDelete()) deleteDeck(deckId).then(() => { onChanged(); onBack(); });
-            }}
+            onClick={() => deleteDeck(deckId).then(onDeleted)}
             className="mt-4 text-xs text-muted hover:text-red-400"
           >
             Delete deck
@@ -288,11 +289,6 @@ function CardPreview({ preview }: { preview: { card: Card; x: number; y: number 
       )}
     </div>
   );
-}
-
-function confirmDelete() {
-  // No window.confirm in the webview; rely on the explicit button placement.
-  return true;
 }
 
 function Legality({ deck }: { deck: DeckDetail }) {
