@@ -182,7 +182,7 @@ function DeckCard({ deck, onOpen }: { deck: DeckSummary; onOpen: () => void }) {
         <img
           src={deck.heroImage}
           alt=""
-          className="absolute inset-0 h-full w-full scale-[1.6] object-cover object-[center_24%] transition group-hover:scale-[1.7]"
+          className="absolute inset-0 h-full w-full scale-[1.6] object-cover object-[center_10%] transition group-hover:scale-[1.7]"
         />
       ) : (
         <div className="absolute inset-0 bg-surface-2" />
