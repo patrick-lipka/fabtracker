@@ -52,8 +52,6 @@ export default function App() {
   const [catalogInfo, setCatalogInfo] = useState<CatalogInfo | null>(null);
   const [results, setResults] = useState<Card[] | null>(null);
   const [searching, setSearching] = useState(false);
-  // Browse view: restrict to cards in the collection ("Owned" switch / have:).
-  const [ownedOnly, setOwnedOnly] = useState(false);
   // Card display mode (shared across Browse/Collection), persisted locally.
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const v = localStorage.getItem("fabtracker:viewMode");
@@ -162,13 +160,14 @@ export default function App() {
     }
     setSearching(true);
     const handle = setTimeout(() => {
-      searchCards(q, ownedOnly)
+      // Owned filtering is now via the `have:` query field (Filters popup).
+      searchCards(q, false)
         .then(setResults)
         .catch(() => setResults([]))
         .finally(() => setSearching(false));
     }, 180);
     return () => clearTimeout(handle);
-  }, [query, view, ownedOnly]);
+  }, [query, view]);
 
   async function sync() {
     setSyncing(true);
@@ -225,10 +224,9 @@ export default function App() {
       .catch(() => {});
 
   // --- Derived view data ----------------------------------------------------
-  // With an active query the backend already applied the owned filter; for an
-  // empty query we apply it in-memory against the owned map (instant, no IPC).
-  const browseCards =
-    results ?? (ownedOnly ? cards.filter((c) => (owned[c.id] ?? 0) > 0) : cards);
+  // With an active query the backend returns the matches; an empty query shows
+  // the full catalog. (Owned filtering is via the `have:` field / Filters.)
+  const browseCards = results ?? cards;
 
   const isBrowse = view === "browse";
   // In the collection view, `collectionCards` is already the backend-filtered
@@ -294,9 +292,6 @@ export default function App() {
                     searching={searching}
                   />
                 </div>
-                {isBrowse && (
-                  <Switch label="Owned" checked={ownedOnly} onChange={setOwnedOnly} />
-                )}
                 <ViewModeToggle mode={viewMode} onChange={setViewMode} />
               </>
             )}
@@ -437,40 +432,6 @@ export default function App() {
         />
       )}
     </div>
-  );
-}
-
-function Switch({
-  label,
-  checked,
-  onChange,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      title="Show only cards in your collection"
-      className="flex items-center gap-2 text-xs text-gray-300"
-    >
-      <span
-        className={`relative h-4 w-7 rounded-full transition ${
-          checked ? "bg-accent" : "bg-border"
-        }`}
-      >
-        <span
-          className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all ${
-            checked ? "left-3.5" : "left-0.5"
-          }`}
-        />
-      </span>
-      {label}
-    </button>
   );
 }
 
