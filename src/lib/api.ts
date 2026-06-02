@@ -206,3 +206,8 @@ export function importDeck(
 ): Promise<number> {
   return invoke<number>("import_deck", { name, format, heroId, sourceUrl, isPrecon, cards });
 }
+
+/** Add every card in a deck (hero + cards) to a binder at deck quantities. */
+export function addDeckToCollection(deckId: number, binderId: number): Promise<void> {
+  return invoke("add_deck_to_collection", { deckId, binderId });
+}

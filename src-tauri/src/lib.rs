@@ -388,6 +388,13 @@ fn import_deck(
     deck::import_deck(&mut conn, name.trim(), &format, &hero_id, source_url.trim(), is_precon, &resolved)
 }
 
+/// Add all of a deck's cards (hero + cards) to a binder at their deck quantities.
+#[tauri::command]
+fn add_deck_to_collection(deck_id: i64, binder_id: i64, db: State<'_, Db>) -> Result<(), String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    deck::add_deck_to_collection(&conn, deck_id, binder_id)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -434,6 +441,7 @@ pub fn run() {
             set_deck_notes,
             adjust_deck_card,
             import_deck,
+            add_deck_to_collection,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

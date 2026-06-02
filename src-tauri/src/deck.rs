@@ -233,6 +233,45 @@ pub fn import_deck(
     Ok(deck_id)
 }
 
+/// Add every card in a deck (hero + cards, at their deck quantities) to a
+/// binder, using each card's newest printing as Standard / NM.
+pub fn add_deck_to_collection(conn: &Connection, deck_id: i64, binder_id: i64) -> Result<(), String> {
+    let hero_id: String = conn
+        .query_row("SELECT hero_id FROM decks WHERE id = ?1", params![deck_id], |r| r.get(0))
+        .map_err(|e| format!("load deck: {e}"))?;
+
+    // (card_id, quantity): the hero (1) plus the deck's cards.
+    let mut items: Vec<(String, i64)> = vec![(hero_id, 1)];
+    let mut stmt = conn
+        .prepare("SELECT card_id, quantity FROM deck_cards WHERE deck_id = ?1")
+        .map_err(|e| format!("prepare deck cards: {e}"))?;
+    let rows = stmt
+        .query_map(params![deck_id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))
+        .map_err(|e| format!("query deck cards: {e}"))?;
+    for row in rows {
+        items.push(row.map_err(|e| format!("read row: {e}"))?);
+    }
+
+    for (card_id, qty) in &items {
+        let Some(card) = load_card(conn, card_id)? else { continue };
+        // Newest printing (printings are ordered newest-first); fall back to id.
+        let (printing_id, set_id) = card
+            .printings
+            .first()
+            .map(|p| (p.id.clone(), p.set_id.clone()))
+            .unwrap_or_else(|| (card_id.clone(), String::new()));
+        let key = collection::EntryKey {
+            card_id,
+            printing_id: &printing_id,
+            set_id: &set_id,
+            foiling: "Standard",
+            condition: "NM",
+        };
+        collection::adjust_entry(conn, binder_id, &key, *qty)?;
+    }
+    Ok(())
+}
+
 pub fn rename_deck(conn: &Connection, id: i64, name: &str) -> Result<(), String> {
     conn.execute(
         "UPDATE decks SET name = ?1, updated_at = ?2 WHERE id = ?3",

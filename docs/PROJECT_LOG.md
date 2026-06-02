@@ -7,6 +7,12 @@ The roadmap below it is the north star; the original vision follows.
 
 ## Log
 
+### 2026-06-02 — Add a deck's cards to a binder ✅
+- The deck view's right pane gains an **Add to collection** block: pick a binder
+  and **Add all** adds the hero + every card at the deck's quantities (newest
+  printing, Standard / NM) to that binder. Backend `add_deck_to_collection`
+  loops `collection::adjust_entry`; the deck refetches so missing/owned update.
+
 ### 2026-06-02 — Import decklists from Fabrary (precons + decks) ✅
 - **Decks → Import**: paste a Fabrary text export (`Copy card list to clipboard`)
   and save it as a deck. An **Import as: Precon / Deck** toggle flags it; precons

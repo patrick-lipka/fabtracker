@@ -8,7 +8,7 @@ import type {
   EntryKey,
   ViewMode,
 } from "../types/card";
-import { adjustEntry, cardEntries, getDeck, listBinders, moveEntry } from "../lib/api";
+import { addDeckToCollection, adjustEntry, cardEntries, getDeck, listBinders, moveEntry } from "../lib/api";
 import { pitchColor } from "../lib/fab";
 import { CardDetail } from "./CardDetail";
 import { DeckStats } from "./DeckStats";
@@ -48,10 +48,13 @@ export function DeckView({ deckId, onEdit, onBack }: DeckViewProps) {
   const [binders, setBinders] = useState<Binder[]>([]);
   const [entries, setEntries] = useState<CardCollectionEntry[]>([]);
   const [collVersion, setCollVersion] = useState(0);
+  const [addBinderId, setAddBinderId] = useState<number>(0);
+  const [addStatus, setAddStatus] = useState<string | null>(null);
 
   useEffect(() => {
     getDeck(deckId).then(setDeck).catch(() => {});
     setSelectedCard(null);
+    setAddStatus(null);
   }, [deckId]);
 
   // Refetch the deck after a collection edit so owned/missing stay correct.
@@ -76,6 +79,20 @@ export function DeckView({ deckId, onEdit, onBack }: DeckViewProps) {
     adjustEntry(binderId, key, delta).then(bumpColl).catch(() => {});
   const handleMoveEntry = (from: number, to: number, key: EntryKey, qty: number) =>
     moveEntry(from, to, key, qty).then(bumpColl).catch(() => {});
+
+  // Keep the binder selection valid as binders load/change.
+  const activeBinder = binders.some((b) => b.id === addBinderId) ? addBinderId : binders[0]?.id ?? 0;
+  async function addAllToCollection() {
+    if (!activeBinder) return;
+    try {
+      await addDeckToCollection(deckId, activeBinder);
+      const name = binders.find((b) => b.id === activeBinder)?.name ?? "binder";
+      setAddStatus(`Added all cards to ${name}.`);
+      bumpColl();
+    } catch (e) {
+      setAddStatus(`Failed: ${e}`);
+    }
+  }
 
   if (!deck) {
     return <div className="flex h-full items-center justify-center text-muted">Loading deck…</div>;
@@ -174,6 +191,39 @@ export function DeckView({ deckId, onEdit, onBack }: DeckViewProps) {
               )}
             </div>
           </div>
+
+          {/* Add all cards to a binder. */}
+          {binders.length > 0 && (
+            <div className="mb-3 rounded-lg border border-border bg-surface-2 p-2.5 text-xs">
+              <div className="mb-1.5 font-semibold uppercase tracking-wide text-muted">
+                Add to collection
+              </div>
+              <div className="flex items-center gap-2">
+                <select
+                  value={String(activeBinder)}
+                  onChange={(e) => {
+                    setAddBinderId(Number(e.target.value));
+                    setAddStatus(null);
+                  }}
+                  className="min-w-0 flex-1 rounded-md border border-border bg-surface px-2 py-1 text-xs text-gray-200 focus:border-accent focus:outline-none"
+                >
+                  {binders.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={addAllToCollection}
+                  className="shrink-0 rounded-md bg-accent px-2.5 py-1 font-semibold text-black hover:brightness-110"
+                >
+                  Add all
+                </button>
+              </div>
+              {addStatus && <p className="mt-1.5 text-emerald-400">{addStatus}</p>}
+            </div>
+          )}
 
           {/* Stats ⇄ Notes toggle (card details below stay put). */}
           <div className="mb-3 flex rounded-lg border border-border bg-surface-2 p-0.5 text-xs">
