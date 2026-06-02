@@ -31,6 +31,7 @@ import {
 import { CardGrid } from "./components/CardGrid";
 import { CardList } from "./components/CardList";
 import { CardDetail } from "./components/CardDetail";
+import { ResizablePane } from "./components/ResizablePane";
 import { SearchBar } from "./components/SearchBar";
 import { BinderBar } from "./components/BinderBar";
 import { BinderMenu, type BinderMenuState } from "./components/BinderMenu";
@@ -410,7 +411,7 @@ export default function App() {
           </div>
         </main>
 
-        <aside className="w-[340px] shrink-0 border-l border-border bg-surface">
+        <ResizablePane>
           <CardDetail
             card={selected}
             view={view}
@@ -420,7 +421,7 @@ export default function App() {
             onAdjustEntry={handleAdjustEntry}
             onMoveEntry={handleMoveEntry}
           />
-        </aside>
+        </ResizablePane>
           </>
         )}
       </div>

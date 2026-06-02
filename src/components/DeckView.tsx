@@ -12,6 +12,7 @@ import { adjustEntry, cardEntries, getDeck, listBinders, moveEntry } from "../li
 import { pitchColor } from "../lib/fab";
 import { CardDetail } from "./CardDetail";
 import { DeckStats } from "./DeckStats";
+import { ResizablePane } from "./ResizablePane";
 import { ViewModeToggle } from "./ViewModeToggle";
 
 interface DeckViewProps {
@@ -118,7 +119,7 @@ export function DeckView({ deckId, onEdit, onBack }: DeckViewProps) {
       </div>
 
       {/* Stats */}
-      <aside className="flex w-[360px] shrink-0 flex-col border-l border-border bg-surface">
+      <ResizablePane className="flex flex-col">
         <div className="flex items-center gap-2 border-b border-border px-4 py-2">
           <button
             type="button"
@@ -187,7 +188,7 @@ export function DeckView({ deckId, onEdit, onBack }: DeckViewProps) {
             </div>
           )}
         </div>
-      </aside>
+      </ResizablePane>
     </div>
   );
 }

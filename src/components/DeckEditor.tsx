@@ -19,6 +19,7 @@ import { legalForDeck, pitchColor } from "../lib/fab";
 import { CardGrid } from "./CardGrid";
 import { CardList } from "./CardList";
 import { DeckStats } from "./DeckStats";
+import { ResizablePane } from "./ResizablePane";
 import { SearchBar } from "./SearchBar";
 import { NotesEditor } from "./NotesEditor";
 import { ViewModeToggle } from "./ViewModeToggle";
@@ -166,7 +167,7 @@ export function DeckEditor({ deckId, cards, onBack, onChanged, onDeleted }: Deck
       </div>
 
       {/* Deck panel */}
-      <aside className="flex w-[380px] shrink-0 flex-col border-l border-border bg-surface">
+      <ResizablePane className="flex flex-col">
         <div className="flex items-center gap-2 border-b border-border px-4 py-2">
           <button
             type="button"
@@ -253,7 +254,7 @@ export function DeckEditor({ deckId, cards, onBack, onChanged, onDeleted }: Deck
             </div>
           )}
         </div>
-      </aside>
+      </ResizablePane>
 
       <CardPreview preview={preview} />
     </div>

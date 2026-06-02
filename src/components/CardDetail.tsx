@@ -239,7 +239,7 @@ function CardImage({ imageUrl, card }: { imageUrl: string | null; card: Card }) 
         src={imageUrl}
         alt={card.name}
         onError={() => setImgOk(false)}
-        className="mx-auto w-full max-w-[280px] rounded-2xl"
+        className="mx-auto w-full max-w-[460px] rounded-2xl"
       />
     );
   }
@@ -247,7 +247,7 @@ function CardImage({ imageUrl, card }: { imageUrl: string | null; card: Card }) 
   const accent = pitchColor(card.color);
   return (
     <div
-      className="mx-auto flex aspect-[2.5/3.5] w-full max-w-[280px] flex-col items-center justify-center rounded-2xl border border-border bg-surface-2 p-4 text-center"
+      className="mx-auto flex aspect-[2.5/3.5] w-full max-w-[460px] flex-col items-center justify-center rounded-2xl border border-border bg-surface-2 p-4 text-center"
       style={{ boxShadow: `inset 0 0 0 3px ${accent}` }}
     >
       <h2 className="text-xl font-bold text-white">{card.name}</h2>
