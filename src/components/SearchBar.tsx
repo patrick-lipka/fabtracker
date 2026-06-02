@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { FilterPanel } from "./FilterPanel";
 
 interface SearchBarProps {
   value: string;
@@ -35,6 +36,7 @@ export function SearchBar({
   placeholder = "Search — e.g.  c:ninja pitch:1 pow>=4",
 }: SearchBarProps) {
   const [showHelp, setShowHelp] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
 
   return (
     <div className="relative flex items-center gap-3">
@@ -61,7 +63,26 @@ export function SearchBar({
 
       <button
         type="button"
-        onClick={() => setShowHelp((s) => !s)}
+        onClick={() => {
+          setShowFilters((s) => !s);
+          setShowHelp(false);
+        }}
+        title="Build a filter visually"
+        className={`flex h-7 items-center rounded-full border px-2.5 text-xs ${
+          showFilters
+            ? "border-accent text-accent"
+            : "border-border text-muted hover:border-accent"
+        }`}
+      >
+        Filters
+      </button>
+
+      <button
+        type="button"
+        onClick={() => {
+          setShowHelp((s) => !s);
+          setShowFilters(false);
+        }}
         title="Search syntax"
         className={`flex h-7 w-7 items-center justify-center rounded-full border text-xs ${
           showHelp
@@ -71,6 +92,14 @@ export function SearchBar({
       >
         ?
       </button>
+
+      {showFilters && (
+        <FilterPanel
+          query={value}
+          onApply={(q) => onChange(q)}
+          onClose={() => setShowFilters(false)}
+        />
+      )}
 
       {showHelp && (
         <div className="absolute right-0 top-full z-20 mt-2 w-[420px] rounded-xl border border-border bg-surface p-4 shadow-xl shadow-black/50">
