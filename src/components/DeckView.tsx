@@ -11,6 +11,7 @@ import type {
 import { addDeckToCollection, adjustEntry, cardEntries, getDeck, listBinders, moveEntry } from "../lib/api";
 import { pitchColor } from "../lib/fab";
 import { CardDetail } from "./CardDetail";
+import { DeckExport } from "./DeckExport";
 import { DeckStats } from "./DeckStats";
 import { NotesEditor } from "./NotesEditor";
 import { ResizablePane } from "./ResizablePane";
@@ -42,6 +43,7 @@ export function DeckView({ deckId, onEdit, onBack }: DeckViewProps) {
   useEffect(() => localStorage.setItem("fabtracker:deckCardView", view), [view]);
 
   const [rightTab, setRightTab] = useState<"stats" | "notes">("stats");
+  const [showExport, setShowExport] = useState(false);
 
   // Card inspected in the right pane (clicked in the gallery).
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
@@ -151,6 +153,13 @@ export function DeckView({ deckId, onEdit, onBack }: DeckViewProps) {
           <span className="min-w-0 flex-1 truncate text-sm font-semibold text-white">
             {deck.name}
           </span>
+          <button
+            type="button"
+            onClick={() => setShowExport(true)}
+            className="rounded-lg border border-border px-3 py-1.5 text-xs text-gray-200 hover:border-accent"
+          >
+            Export
+          </button>
           <button
             type="button"
             onClick={onEdit}
@@ -266,6 +275,8 @@ export function DeckView({ deckId, onEdit, onBack }: DeckViewProps) {
           )}
         </div>
       </ResizablePane>
+
+      {showExport && <DeckExport deck={deck} onClose={() => setShowExport(false)} />}
     </div>
   );
 }
