@@ -64,14 +64,31 @@ export function legalForDeck(card: Card, hero: Card | null, format: string): boo
  *  plus format legality (bans, etc.). Silver Age heroes must also be a legal
  *  rarity. */
 export function heroLegalForFormat(hero: Card, format: string): boolean {
+  return heroCategoryOk(hero, format) && !heroFormatIssue(hero, format);
+}
+
+/** Whether a hero is the right *category* for a format (young vs adult). This is
+ *  a hard filter; tournament-legality (bans/LL) is reported separately so those
+ *  heroes can still be shown (greyed) and chosen. */
+export function heroCategoryOk(hero: Card, format: string): boolean {
   const young = hero.types.includes("Young");
-  if (format === "blitz" || format === "silver_age") {
-    if (!young) return false;
-  } else if (young) {
-    return false; // CC = adult heroes
-  }
-  if (format === "silver_age" && !silverAgeRarityOk(hero)) return false;
-  return formatAllowed(hero, format);
+  return format === "blitz" || format === "silver_age" ? young : !young;
+}
+
+/** A short reason a right-category hero isn't tournament-legal, or null. */
+export function heroFormatIssue(hero: Card, format: string): string | null {
+  const f =
+    format === "blitz"
+      ? { legal: hero.blitzLegal, banned: hero.blitzBanned, ll: hero.blitzLivingLegend, susp: hero.blitzSuspended }
+      : format === "silver_age"
+        ? { legal: hero.silverAgeLegal, banned: hero.silverAgeBanned, ll: null, susp: null }
+        : { legal: hero.ccLegal, banned: hero.ccBanned, ll: hero.ccLivingLegend, susp: hero.ccSuspended };
+  if (f.banned === true) return "Banned";
+  if (f.ll === true) return "Living Legend";
+  if (f.susp === true) return "Suspended";
+  if (f.legal === false) return "Not legal";
+  if (format === "silver_age" && !silverAgeRarityOk(hero)) return "Wrong rarity";
+  return null;
 }
 
 /** Pitch strip color name → hex (matches the --color-pitch-* theme tokens). */

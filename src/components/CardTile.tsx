@@ -10,13 +10,17 @@ interface CardTileProps {
   quantity?: number;
   /** Open the binder menu at the given screen coordinates. */
   onMenu?: (card: Card, x: number, y: number) => void;
+  /** Grey the tile out (e.g. a hero that isn't tournament-legal). */
+  dim?: boolean;
+  /** A label ribbon across the bottom (e.g. "Living Legend"). */
+  badge?: string;
 }
 
 /**
  * A single card in the grid. Shows the real card image when available; while it
  * loads (or if it's missing/fails) a styled placeholder frame is shown instead.
  */
-export function CardTile({ card, selected, onSelect, quantity, onMenu }: CardTileProps) {
+export function CardTile({ card, selected, onSelect, quantity, onMenu, dim, badge }: CardTileProps) {
   const [imgOk, setImgOk] = useState(true);
   const showImage = card.imageUrl && imgOk;
 
@@ -32,10 +36,11 @@ export function CardTile({ card, selected, onSelect, quantity, onMenu }: CardTil
             }
           : undefined
       }
-      title={card.name}
+      title={badge ? `${card.name} — ${badge}` : card.name}
       className={`group relative block h-full w-full overflow-hidden rounded-xl border bg-surface-2 transition
         hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/40
-        ${selected ? "border-accent ring-2 ring-accent/60" : "border-border"}`}
+        ${selected ? "border-accent ring-2 ring-accent/60" : "border-border"}
+        ${dim ? "opacity-60 grayscale" : ""}`}
     >
       {/* Fallback frame (base layer — visible when no image) */}
       <PlaceholderFrame card={card} />
@@ -55,6 +60,12 @@ export function CardTile({ card, selected, onSelect, quantity, onMenu }: CardTil
           ×{quantity}
         </span>
       ) : null}
+
+      {badge && (
+        <span className="absolute inset-x-0 bottom-0 z-10 bg-black/80 px-1.5 py-0.5 text-center text-[10px] font-semibold uppercase tracking-wide text-amber-300">
+          {badge}
+        </span>
+      )}
 
       {onMenu && (
         <span

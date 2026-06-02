@@ -13,6 +13,8 @@ interface CardGridProps {
   quantities?: Record<string, number>;
   /** Open the binder menu for a card at screen coordinates. */
   onCardMenu?: (card: Card, x: number, y: number) => void;
+  /** Optional per-card overlay: dim the tile and/or show a corner badge. */
+  annotate?: (card: Card) => { dim?: boolean; badge?: string } | null;
   size: TileSize;
 }
 
@@ -46,6 +48,7 @@ export function CardGrid({
   onSelect,
   quantities,
   onCardMenu,
+  annotate,
   size,
 }: CardGridProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -122,16 +125,21 @@ export function CardGrid({
                 gap: GAP,
               }}
             >
-              {rowCards.map((card) => (
-                <CardTile
-                  key={card.id}
-                  card={card}
-                  selected={card.id === selectedId}
-                  onSelect={onSelect}
-                  quantity={quantities?.[card.id]}
-                  onMenu={onCardMenu}
-                />
-              ))}
+              {rowCards.map((card) => {
+                const note = annotate?.(card);
+                return (
+                  <CardTile
+                    key={card.id}
+                    card={card}
+                    selected={card.id === selectedId}
+                    onSelect={onSelect}
+                    quantity={quantities?.[card.id]}
+                    onMenu={onCardMenu}
+                    dim={note?.dim}
+                    badge={note?.badge}
+                  />
+                );
+              })}
             </div>
           );
         })}

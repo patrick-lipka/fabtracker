@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Card, DeckFormat, DeckSummary, OwnedCounts, ViewMode } from "../types/card";
 import { createDeck, listDecks, listHeroes } from "../lib/api";
-import { heroLegalForFormat } from "../lib/fab";
+import { heroCategoryOk, heroFormatIssue } from "../lib/fab";
 import { CardGrid } from "./CardGrid";
 import { DeckEditor } from "./DeckEditor";
 import { DeckImport } from "./DeckImport";
@@ -322,10 +322,12 @@ function HeroPicker({
     listHeroes(ownedOnly).then(setHeroes).catch(() => setHeroes([]));
   }, [ownedOnly]);
 
+  // Show heroes of the right category (young/adult); tournament-illegal ones
+  // (e.g. Living Legend in CC) are kept but greyed out + badged, still pickable.
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return heroes
-      .filter((h) => heroLegalForFormat(h, format))
+      .filter((h) => heroCategoryOk(h, format))
       .filter((h) => (q ? h.name.toLowerCase().includes(q) : true));
   }, [heroes, query, format]);
 
@@ -362,7 +364,16 @@ function HeroPicker({
             {ownedOnly ? "You don't own any heroes yet." : "No heroes found."}
           </div>
         ) : (
-          <CardGrid cards={filtered} selectedId={null} onSelect={onPick} size="medium" />
+          <CardGrid
+            cards={filtered}
+            selectedId={null}
+            onSelect={onPick}
+            size="medium"
+            annotate={(h) => {
+              const issue = heroFormatIssue(h, format);
+              return issue ? { dim: true, badge: issue } : null;
+            }}
+          />
         )}
       </div>
     </div>
