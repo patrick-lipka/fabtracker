@@ -6,6 +6,7 @@ interface SearchBarProps {
   resultCount: number;
   totalCount: number;
   searching: boolean;
+  placeholder?: string;
 }
 
 const EXAMPLES: [string, string][] = [
@@ -31,6 +32,7 @@ export function SearchBar({
   resultCount,
   totalCount,
   searching,
+  placeholder = "Search — e.g.  c:ninja pitch:1 pow>=4",
 }: SearchBarProps) {
   const [showHelp, setShowHelp] = useState(false);
 
@@ -44,7 +46,7 @@ export function SearchBar({
           type="search"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="Search — e.g.  c:ninja pitch:1 pow>=4"
+          placeholder={placeholder}
           className="w-full rounded-lg border border-border bg-surface-2 py-2 pl-9 pr-3 text-sm text-white placeholder:text-muted focus:border-accent focus:outline-none"
         />
       </div>

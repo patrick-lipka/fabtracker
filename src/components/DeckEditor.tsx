@@ -19,6 +19,7 @@ import { legalForDeck, pitchColor } from "../lib/fab";
 import { CardGrid } from "./CardGrid";
 import { CardList } from "./CardList";
 import { DeckStats } from "./DeckStats";
+import { SearchBar } from "./SearchBar";
 import { NotesEditor } from "./NotesEditor";
 import { ViewModeToggle } from "./ViewModeToggle";
 
@@ -128,18 +129,21 @@ export function DeckEditor({ deckId, cards, onBack, onChanged, onDeleted }: Deck
       {/* Pool */}
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex items-center gap-3 border-b border-border px-4 py-2">
-          <input
-            value={poolQuery}
-            onChange={(e) => setPoolQuery(e.target.value)}
-            placeholder="Search the pool — e.g. pow>=4, kw:go again"
-            className="flex-1 rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm text-white placeholder:text-muted focus:border-accent focus:outline-none"
-          />
+          <div className="min-w-0 flex-1">
+            <SearchBar
+              value={poolQuery}
+              onChange={setPoolQuery}
+              resultCount={pool.length}
+              totalCount={pool.length}
+              searching={false}
+              placeholder="Search the pool — e.g. pow>=4, kw:go again"
+            />
+          </div>
           <label className="flex items-center gap-1.5 whitespace-nowrap text-xs text-gray-300">
             <input type="checkbox" checked={legalOnly} onChange={(e) => setLegalOnly(e.target.checked)} />
             Legal only
           </label>
           <ViewModeToggle mode={poolView} onChange={setPoolView} />
-          <span className="whitespace-nowrap text-xs text-muted">{pool.length}</span>
         </div>
         <div className="min-h-0 flex-1">
           {poolView === "list" ? (
