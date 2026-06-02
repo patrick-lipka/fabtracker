@@ -7,6 +7,15 @@ The roadmap below it is the north star; the original vision follows.
 
 ## Log
 
+### 2026-06-03 — Image cache management + tighter CSP ✅
+- ⚙ settings gains an **Image cache** section: shows file count + size, a
+  **Clear** button, and **Download all images** (opt-in pre-warm). Backend
+  `image_cache_info` / `clear_image_cache` / `prewarm_image_cache` (the last
+  downloads every card's primary image 8-at-a-time, https-only, emitting
+  `image-prewarm-progress` for a live count).
+- Dropped `https:` from `img-src` now that every image routes through the
+  `cardimg://` cache — the CSP no longer allows arbitrary remote image hosts.
+
 ### 2026-06-03 — Security hardening + local image cache ✅
 - **Audit:** no secrets/API keys (no AI SDK at all), no `.env`/credentials, no
   card data/DB/build artifacts tracked, SQL fully parameterized, no XSS sinks,

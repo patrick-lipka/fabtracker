@@ -26,7 +26,7 @@ use collection::{Binder, CardCollectionEntry, CollectionCard, EntryKey};
 use deck::{DeckDetail, DeckSummary};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
-use tauri::{Manager, State};
+use tauri::{AppHandle, Manager, State};
 
 /// The single shared SQLite connection, guarded by a mutex (queries are short).
 type Db = Mutex<Connection>;
@@ -396,6 +396,37 @@ fn add_deck_to_collection(deck_id: i64, binder_id: i64, db: State<'_, Db>) -> Re
     deck::add_deck_to_collection(&conn, deck_id, binder_id)
 }
 
+// --- Image cache ------------------------------------------------------------
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ImageCacheInfo {
+    count: u64,
+    bytes: u64,
+}
+
+#[tauri::command]
+fn image_cache_info(app: AppHandle) -> Result<ImageCacheInfo, String> {
+    let (count, bytes) = imagecache::stats(&app)?;
+    Ok(ImageCacheInfo { count, bytes })
+}
+
+#[tauri::command]
+fn clear_image_cache(app: AppHandle) -> Result<(), String> {
+    imagecache::clear(&app)
+}
+
+/// Download every card's image into the cache (opt-in, for full offline use).
+/// Emits `image-prewarm-progress` events; returns the number downloaded.
+#[tauri::command]
+async fn prewarm_image_cache(app: AppHandle, db: State<'_, Db>) -> Result<u64, String> {
+    let urls = {
+        let conn = db.lock().map_err(|e| e.to_string())?;
+        db::all_image_urls(&conn)?
+    };
+    imagecache::prewarm(&app, urls).await
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -451,6 +482,9 @@ pub fn run() {
             adjust_deck_card,
             import_deck,
             add_deck_to_collection,
+            image_cache_info,
+            clear_image_cache,
+            prewarm_image_cache,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

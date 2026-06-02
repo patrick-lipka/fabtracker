@@ -1,8 +1,21 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import type { CatalogInfo } from "../lib/api";
+import { listen } from "@tauri-apps/api/event";
+import {
+  clearImageCache,
+  imageCacheInfo,
+  prewarmImageCache,
+  type CatalogInfo,
+  type ImageCacheInfo,
+} from "../lib/api";
 
 const REPO_URL = "https://github.com/the-fab-cube/flesh-and-blood-cards";
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
 
 interface DataSourceButtonProps {
   info: CatalogInfo | null;
@@ -33,10 +46,47 @@ export function DataSourceButton({ info, syncing, onApply, onSync }: DataSourceB
   const isManual = info ? info.mode !== "auto" : false;
   const [manual, setManual] = useState(isManual);
   const [refText, setRefText] = useState(isManual ? (info?.mode ?? "") : "");
+  const [cache, setCache] = useState<ImageCacheInfo | null>(null);
+  const [clearing, setClearing] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+
+  // Load image-cache size whenever the popover opens.
+  useEffect(() => {
+    if (open) imageCacheInfo().then(setCache).catch(() => setCache(null));
+  }, [open]);
 
   function apply() {
     onApply(manual ? refText.trim() || "auto" : "auto");
     setOpen(false);
+  }
+
+  async function clearCache() {
+    setClearing(true);
+    try {
+      await clearImageCache();
+      setCache(await imageCacheInfo());
+    } catch {
+      /* ignore */
+    } finally {
+      setClearing(false);
+    }
+  }
+
+  async function downloadAll() {
+    setProgress({ done: 0, total: 0 });
+    const unlisten = await listen<{ done: number; total: number }>(
+      "image-prewarm-progress",
+      (e) => setProgress(e.payload),
+    );
+    try {
+      await prewarmImageCache();
+      setCache(await imageCacheInfo());
+    } catch {
+      /* ignore */
+    } finally {
+      unlisten();
+      setProgress(null);
+    }
   }
 
   return (
@@ -126,6 +176,35 @@ export function DataSourceButton({ info, syncing, onApply, onSync }: DataSourceB
             >
               Re-sync now
             </button>
+
+            <div className="mt-3 border-t border-border pt-3 text-[11px] text-muted">
+              <div className="flex items-center justify-between">
+                <span>
+                  Image cache:{" "}
+                  <span className="text-gray-300">
+                    {cache ? `${cache.count} files · ${formatBytes(cache.bytes)}` : "…"}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  onClick={clearCache}
+                  disabled={clearing || progress !== null || (cache?.count ?? 0) === 0}
+                  className="rounded-md border border-border px-2 py-0.5 text-gray-200 hover:border-accent disabled:opacity-50"
+                >
+                  {clearing ? "Clearing…" : "Clear"}
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={downloadAll}
+                disabled={progress !== null || clearing}
+                className="mt-2 w-full rounded-md border border-border bg-surface-2 py-1 text-gray-200 hover:border-accent disabled:opacity-60"
+              >
+                {progress
+                  ? `Downloading ${progress.done}/${progress.total || "…"}…`
+                  : "Download all images"}
+              </button>
+            </div>
           </div>
         </>
       )}

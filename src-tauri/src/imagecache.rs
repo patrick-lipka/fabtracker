@@ -9,7 +9,8 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::sync::OnceLock;
 
-use tauri::{http, AppHandle, Manager};
+use serde::Serialize;
+use tauri::{http, AppHandle, Emitter, Manager};
 
 static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
 
@@ -75,6 +76,92 @@ fn response(status: u16, content_type: &str, body: Vec<u8>) -> http::Response<Ve
         .unwrap_or_else(|_| http::Response::new(Vec::new()))
 }
 
+/// The on-disk card-image cache directory.
+pub fn dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    Ok(app
+        .path()
+        .app_cache_dir()
+        .map_err(|e| e.to_string())?
+        .join("card-images"))
+}
+
+/// (file count, total bytes) of the cache.
+pub fn stats(app: &AppHandle) -> Result<(u64, u64), String> {
+    let d = dir(app)?;
+    let mut count = 0u64;
+    let mut bytes = 0u64;
+    if let Ok(rd) = std::fs::read_dir(&d) {
+        for entry in rd.flatten() {
+            if let Ok(m) = entry.metadata() {
+                if m.is_file() {
+                    count += 1;
+                    bytes += m.len();
+                }
+            }
+        }
+    }
+    Ok((count, bytes))
+}
+
+/// Delete every cached image.
+pub fn clear(app: &AppHandle) -> Result<(), String> {
+    let d = dir(app)?;
+    if d.exists() {
+        std::fs::remove_dir_all(&d).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PrewarmProgress {
+    pub done: u64,
+    pub total: u64,
+}
+
+/// Download every given image that isn't already cached, emitting
+/// `image-prewarm-progress` events. Returns how many were (attempted to be)
+/// downloaded. Concurrency-limited to stay polite to the CDNs.
+pub async fn prewarm(app: &AppHandle, urls: Vec<String>) -> Result<u64, String> {
+    const CONCURRENCY: usize = 8;
+    let cache_dir = dir(app)?;
+    let _ = std::fs::create_dir_all(&cache_dir);
+
+    let missing: Vec<String> = urls
+        .into_iter()
+        .filter(|u| u.starts_with("https://"))
+        .filter(|u| !cache_dir.join(cache_name(u)).exists())
+        .collect();
+    let total = missing.len() as u64;
+    let _ = app.emit("image-prewarm-progress", PrewarmProgress { done: 0, total });
+
+    let mut done = 0u64;
+    for chunk in missing.chunks(CONCURRENCY) {
+        let handles: Vec<_> = chunk
+            .iter()
+            .cloned()
+            .map(|url| {
+                let file = cache_dir.join(cache_name(&url));
+                tauri::async_runtime::spawn(async move {
+                    if let Ok(resp) = client().get(&url).send().await {
+                        if resp.status().is_success() {
+                            if let Ok(bytes) = resp.bytes().await {
+                                let _ = std::fs::write(&file, &bytes);
+                            }
+                        }
+                    }
+                })
+            })
+            .collect();
+        for h in handles {
+            let _ = h.await;
+        }
+        done += chunk.len() as u64;
+        let _ = app.emit("image-prewarm-progress", PrewarmProgress { done, total });
+    }
+    Ok(total)
+}
+
 /// Serve `cardimg://localhost/<encoded url>` from cache, downloading on miss.
 pub async fn serve(app: &AppHandle, path: &str) -> http::Response<Vec<u8>> {
     match serve_inner(app, path).await {
@@ -90,12 +177,8 @@ async fn serve_inner(app: &AppHandle, path: &str) -> Result<(String, Vec<u8>), S
         return Err("unsupported url".into());
     }
     let ext = ext_of(&url).to_string();
-    let dir = app
-        .path()
-        .app_cache_dir()
-        .map_err(|e| e.to_string())?
-        .join("card-images");
-    let file = dir.join(cache_name(&url));
+    let cache_dir = dir(app)?;
+    let file = cache_dir.join(cache_name(&url));
 
     if let Ok(bytes) = std::fs::read(&file) {
         return Ok((ext, bytes));
@@ -106,7 +189,7 @@ async fn serve_inner(app: &AppHandle, path: &str) -> Result<(String, Vec<u8>), S
         return Err(format!("upstream status {}", resp.status()));
     }
     let bytes = resp.bytes().await.map_err(|e| e.to_string())?.to_vec();
-    let _ = std::fs::create_dir_all(&dir);
+    let _ = std::fs::create_dir_all(&cache_dir);
     let _ = std::fs::write(&file, &bytes);
     Ok((ext, bytes))
 }

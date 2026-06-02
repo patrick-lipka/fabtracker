@@ -126,6 +126,24 @@ pub(crate) fn run_migrations(conn: &mut Connection) -> Result<(), String> {
         .map_err(|e| format!("run migrations: {e}"))
 }
 
+/// Every card's primary image URL (the one shown in grids/details), for
+/// pre-warming the image cache.
+pub fn all_image_urls(conn: &Connection) -> Result<Vec<String>, String> {
+    let mut stmt = conn
+        .prepare("SELECT json_extract(data, '$.imageUrl') FROM cards")
+        .map_err(|e| format!("prepare image urls: {e}"))?;
+    let rows = stmt
+        .query_map([], |r| r.get::<_, Option<String>>(0))
+        .map_err(|e| format!("query image urls: {e}"))?;
+    let mut out = Vec::new();
+    for row in rows {
+        if let Some(u) = row.map_err(|e| format!("read url: {e}"))? {
+            out.push(u);
+        }
+    }
+    Ok(out)
+}
+
 /// Replace the entire card catalog in one transaction.
 pub fn replace_cards(conn: &mut Connection, cards: &[Card]) -> Result<(), String> {
     let tx = conn.transaction().map_err(|e| format!("begin tx: {e}"))?;

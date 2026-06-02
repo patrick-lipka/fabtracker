@@ -211,3 +211,28 @@ export function importDeck(
 export function addDeckToCollection(deckId: number, binderId: number): Promise<void> {
   return invoke("add_deck_to_collection", { deckId, binderId });
 }
+
+// --- Image cache ------------------------------------------------------------
+
+export interface ImageCacheInfo {
+  count: number;
+  bytes: number;
+}
+
+/** File count + total bytes of the on-disk card-image cache. */
+export function imageCacheInfo(): Promise<ImageCacheInfo> {
+  return invoke<ImageCacheInfo>("image_cache_info");
+}
+
+/** Delete every cached card image. */
+export function clearImageCache(): Promise<void> {
+  return invoke("clear_image_cache");
+}
+
+/**
+ * Download every card image into the cache (opt-in). Emits
+ * `image-prewarm-progress` ({ done, total }) events; resolves with the count.
+ */
+export function prewarmImageCache(): Promise<number> {
+  return invoke<number>("prewarm_image_cache");
+}
