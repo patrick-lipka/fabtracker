@@ -367,48 +367,71 @@ function Section({
       <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted">
         {title}
       </div>
-      <div className="flex flex-col">
+      <div className="flex flex-col gap-1">
         {entries.map((e) => (
           <div
             key={e.card.id}
-            className="flex items-center gap-2 py-0.5 text-sm"
+            title={e.card.name}
+            className={`relative aspect-[8/1] w-full overflow-hidden rounded-md bg-surface-2 ${
+              e.legal ? "" : "ring-1 ring-red-500/70"
+            }`}
             onMouseEnter={(ev) => onHover(e.card, ev)}
             onMouseMove={(ev) => onHover(e.card, ev)}
             onMouseLeave={onLeave}
           >
-            <span
-              className="h-3.5 w-1 shrink-0 rounded-full"
-              style={{ background: pitchColor(e.card.color) }}
-            />
-            <span className={`min-w-0 flex-1 truncate ${e.legal ? "text-gray-200" : "text-red-400"}`}>
-              {e.card.name}
-            </span>
-            {!fixed && e.owned < e.quantity && (
-              <span className="shrink-0 text-[10px] text-amber-300" title="More than you own">
-                need {e.quantity - e.owned}
-              </span>
-            )}
-            {fixed ? (
-              <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted">Hero</span>
+            {/* Card art cropped to its title band (top ~7%). */}
+            {e.card.imageUrl ? (
+              <img
+                src={e.card.imageUrl}
+                alt=""
+                loading="lazy"
+                className="absolute inset-0 h-full w-full object-cover object-[center_3%]"
+              />
             ) : (
-              <div className="flex shrink-0 items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => onChange(e.card.id, -1)}
-                  className="flex h-5 w-5 items-center justify-center rounded border border-border text-xs hover:border-accent"
-                >
-                  −
-                </button>
-                <span className="w-4 text-center text-xs font-bold text-white">{e.quantity}</span>
-                <button
-                  type="button"
-                  onClick={() => onChange(e.card.id, 1)}
-                  className="flex h-5 w-5 items-center justify-center rounded border border-border text-xs hover:border-accent"
-                >
-                  +
-                </button>
+              <div className="absolute inset-0 flex items-center gap-2 px-2">
+                <span
+                  className="h-3.5 w-1 shrink-0 rounded-full"
+                  style={{ background: pitchColor(e.card.color) }}
+                />
+                <span className={`truncate text-xs ${e.legal ? "text-gray-200" : "text-red-400"}`}>
+                  {e.card.name}
+                </span>
               </div>
             )}
+
+            {/* Controls over a left-fading scrim so they stay legible on the art. */}
+            <div className="absolute inset-y-0 right-0 flex items-center gap-1 bg-gradient-to-l from-black/85 via-black/55 to-transparent pl-10 pr-1.5">
+              {!fixed && e.owned < e.quantity && (
+                <span className="shrink-0 text-[10px] font-medium text-amber-300" title="More than you own">
+                  need {e.quantity - e.owned}
+                </span>
+              )}
+              {fixed ? (
+                <span className="shrink-0 text-[10px] uppercase tracking-wide text-gray-200 drop-shadow">
+                  Hero
+                </span>
+              ) : (
+                <div className="flex shrink-0 items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => onChange(e.card.id, -1)}
+                    className="flex h-5 w-5 items-center justify-center rounded border border-white/25 bg-black/40 text-xs text-white hover:border-accent"
+                  >
+                    −
+                  </button>
+                  <span className="w-4 text-center text-xs font-bold text-white drop-shadow">
+                    {e.quantity}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onChange(e.card.id, 1)}
+                    className="flex h-5 w-5 items-center justify-center rounded border border-white/25 bg-black/40 text-xs text-white hover:border-accent"
+                  >
+                    +
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         ))}
       </div>
