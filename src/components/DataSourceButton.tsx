@@ -205,6 +205,11 @@ export function DataSourceButton({ info, syncing, onApply, onSync }: DataSourceB
                   : "Download all images"}
               </button>
             </div>
+
+            <p className="mt-3 border-t border-border pt-3 text-[10px] leading-relaxed text-muted">
+              Unofficial fan tool — not affiliated with Legend Story Studios.
+              Flesh and Blood card data &amp; images are © LSS.
+            </p>
           </div>
         </>
       )}

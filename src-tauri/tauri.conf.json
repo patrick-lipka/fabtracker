@@ -24,6 +24,10 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "category": "Utility",
+    "shortDescription": "Flesh and Blood collection & deck manager",
+    "longDescription": "A local-first collection and deck manager for the Flesh and Blood TCG: browse the card catalog, organise your collection into binders, build and validate decks, and import/export decklists. Unofficial fan tool; card data © Legend Story Studios.",
+    "copyright": "© 2026 Patrick Lipka. Flesh and Blood is © Legend Story Studios.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

@@ -1,11 +1,19 @@
 # FaB Tracker
 
 A local-first, self-hostable collection & deck manager for **Flesh and Blood** —
-think Moxfield, but native-fast and offline-capable.
+think Moxfield, but native-fast and offline-capable. Browse the catalog, manage
+a binder collection, build & validate decks (CC / Blitz / Silver Age), import &
+export decklists (Fabrary / GEM / text), and import precons.
 
-> **Status:** Step 6 — browse, search, build a binder **collection**, and build
-> **decks** (all in local SQLite). See [`docs/PROJECT_LOG.md`](docs/PROJECT_LOG.md)
-> for the roadmap and where we are.
+> **Status:** First release (v0.1.0). See [`docs/PROJECT_LOG.md`](docs/PROJECT_LOG.md)
+> for the full feature log and roadmap.
+
+> **Disclaimer:** FaB Tracker is an **unofficial, fan-made tool** and is **not
+> affiliated with, endorsed by, or sponsored by Legend Story Studios**. "Flesh
+> and Blood" and all card names, text, and images are © Legend Story Studios.
+> Card data is fetched at runtime from the community
+> [the-fab-cube/flesh-and-blood-cards](https://github.com/the-fab-cube/flesh-and-blood-cards)
+> dataset and is **not** redistributed with this app.
 
 ## What it does today
 
@@ -96,6 +104,33 @@ npm run tauri build    # produce a distributable desktop binary
 > fetch). It's stored in a SQLite database in the OS app-data dir, e.g. on macOS
 > `~/Library/Application Support/com.fabtracker.app/fabtracker.db`; later
 > launches load instantly from there.
+
+## Install (released builds)
+
+Download the build for your OS, then on first launch:
+
+- **macOS** — the `.dmg` is **unsigned**, so Gatekeeper blocks it on first open.
+  Right-click the app → **Open** → **Open** (only needed once).
+- **Windows** — SmartScreen may warn (unsigned). Click **More info → Run anyway**.
+- **Linux** — use the `.AppImage` (`chmod +x` then run) or the `.deb`.
+
+On first launch, click **Download card data** (one-time ~20 MB fetch from the
+community dataset). Everything after that works offline.
+
+## Releasing
+
+CI ([`.github/workflows/release.yml`](.github/workflows/release.yml)) builds
+macOS / Windows / Linux bundles and uploads them as workflow artifacts. To cut
+a release:
+
+```bash
+git tag v0.1.0
+git push --tags          # triggers the build matrix
+```
+
+Then download the artifacts from the Actions run and distribute them. (You can
+also run the workflow manually via **Run workflow**.) Builds are unsigned;
+code signing / notarization can be added later with the appropriate certs.
 
 ## Project layout
 

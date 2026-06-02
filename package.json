@@ -2,6 +2,9 @@
   "name": "fabtracker",
   "private": true,
   "version": "0.1.0",
+  "description": "Local-first collection & deck manager for the Flesh and Blood TCG.",
+  "license": "MIT",
+  "author": "Patrick Lipka",
   "type": "module",
   "scripts": {
     "dev": "vite",
