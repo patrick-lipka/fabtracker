@@ -300,25 +300,12 @@ export default function App() {
                 <ViewModeToggle mode={viewMode} onChange={setViewMode} />
               </>
             )}
-            {catalogInfo?.lastSynced && (
-              <span className="whitespace-nowrap text-[11px] text-muted">
-                {catalogInfo.branch ? `${catalogInfo.branch} · ` : ""}
-                synced {formatSynced(catalogInfo.lastSynced)}
-              </span>
-            )}
             <DataSourceButton
               info={catalogInfo}
               syncing={syncing}
               onApply={applyDataRef}
+              onSync={sync}
             />
-            <button
-              type="button"
-              onClick={sync}
-              disabled={syncing}
-              className="rounded-lg border border-border bg-surface-2 px-3 py-2 text-xs text-gray-200 hover:border-accent disabled:opacity-50"
-            >
-              {syncing ? "Syncing…" : "Re-sync"}
-            </button>
           </>
         )}
       </header>
@@ -504,16 +491,6 @@ function ViewTabs({ view, onChange }: { view: View; onChange: (v: View) => void 
       ))}
     </div>
   );
-}
-
-/** Compact, locale-aware "last synced" label. */
-function formatSynced(ms: number): string {
-  const date = new Date(ms);
-  const today = new Date();
-  const sameDay = date.toDateString() === today.toDateString();
-  return sameDay
-    ? date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
-    : date.toLocaleDateString();
 }
 
 function Centered({ children }: { children: React.ReactNode }) {

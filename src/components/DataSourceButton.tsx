@@ -1,11 +1,25 @@
 import { useState } from "react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import type { CatalogInfo } from "../lib/api";
+
+const REPO_URL = "https://github.com/the-fab-cube/flesh-and-blood-cards";
 
 interface DataSourceButtonProps {
   info: CatalogInfo | null;
   syncing: boolean;
   /** Persist the chosen ref mode, then re-sync. */
   onApply: (mode: string) => void;
+  /** Re-pull the catalog from the current source. */
+  onSync: () => void;
+}
+
+/** Compact "last synced" label (same idea as the old header one). */
+function syncedLabel(ms: number): string {
+  const date = new Date(ms);
+  const sameDay = date.toDateString() === new Date().toDateString();
+  return sameDay
+    ? date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
+    : date.toLocaleDateString();
 }
 
 /**
@@ -14,7 +28,7 @@ interface DataSourceButtonProps {
  * or a specific branch/tag. The maintainer rotates spoiler-season branches, so
  * "auto" tracks whichever is currently active.
  */
-export function DataSourceButton({ info, syncing, onApply }: DataSourceButtonProps) {
+export function DataSourceButton({ info, syncing, onApply, onSync }: DataSourceButtonProps) {
   const [open, setOpen] = useState(false);
   const isManual = info ? info.mode !== "auto" : false;
   const [manual, setManual] = useState(isManual);
@@ -45,8 +59,16 @@ export function DataSourceButton({ info, syncing, onApply }: DataSourceButtonPro
             <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
               Card data source
             </h3>
-            <p className="mb-3 text-[11px] leading-relaxed text-muted">
-              From the community the-fab-cube dataset.
+            <p className="mb-2 text-[11px] leading-relaxed text-muted">
+              From the community{" "}
+              <button
+                type="button"
+                onClick={() => openUrl(REPO_URL).catch(() => {})}
+                className="text-accent hover:underline"
+              >
+                the-fab-cube dataset
+              </button>
+              .
               {info?.branch && (
                 <>
                   {" "}
@@ -54,6 +76,11 @@ export function DataSourceButton({ info, syncing, onApply }: DataSourceButtonPro
                 </>
               )}
             </p>
+            {info?.lastSynced != null && (
+              <p className="mb-3 text-[11px] text-muted">
+                Last synced <span className="text-gray-300">{syncedLabel(info.lastSynced)}</span>.
+              </p>
+            )}
 
             <label className="flex items-center gap-2 text-sm text-gray-200">
               <input
@@ -87,6 +114,17 @@ export function DataSourceButton({ info, syncing, onApply }: DataSourceButtonPro
               className="mt-3 w-full rounded-lg bg-accent py-1.5 text-sm font-semibold text-black hover:brightness-110 disabled:opacity-60"
             >
               {syncing ? "Syncing…" : "Save & sync"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onSync();
+                setOpen(false);
+              }}
+              disabled={syncing}
+              className="mt-2 w-full rounded-lg border border-border bg-surface-2 py-1.5 text-sm text-gray-200 hover:border-accent disabled:opacity-60"
+            >
+              Re-sync now
             </button>
           </div>
         </>
