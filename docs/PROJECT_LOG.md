@@ -7,6 +7,16 @@ The roadmap below it is the north star; the original vision follows.
 
 ## Log
 
+### 2026-06-03 — Security hardening + local image cache ✅
+- **Audit:** no secrets/API keys (no AI SDK at all), no `.env`/credentials, no
+  card data/DB/build artifacts tracked, SQL fully parameterized, no XSS sinks,
+  no remote IPC. Set a **Content Security Policy** (was `null`) and narrowed the
+  opener capability to `allow-open-url`; fixed the default `index.html` title.
+- **Image cache:** card images now route through a `cardimg://` custom protocol
+  (`imagecache.rs`) that downloads each image once to the app cache dir and
+  serves it from disk — faster reloads + offline. Frontend `cachedImg()` wraps
+  every `<img>`; CSP `img-src` allows the scheme.
+
 ### 2026-06-02 — Legality: multi-class cards + CC/Silver Age rules ✅
 - **Multi-class cards** (e.g. Brute/Warrior, Pirate/Necromancer) are now legal
   for a hero of *any* of their classes (talent must still match). Split the

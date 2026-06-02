@@ -16,6 +16,7 @@ import {
   setDeckNotes,
 } from "../lib/api";
 import { legalForDeck, pitchColor } from "../lib/fab";
+import { cachedImg } from "../lib/img";
 import { CardGrid } from "./CardGrid";
 import { CardList } from "./CardList";
 import { DeckStats } from "./DeckStats";
@@ -273,7 +274,7 @@ function CardPreview({ preview }: { preview: { card: Card; x: number; y: number 
     <div className="pointer-events-none fixed z-50" style={{ left, top, width }}>
       {card.imageUrl ? (
         <img
-          src={card.imageUrl}
+          src={cachedImg(card.imageUrl)}
           alt={card.name}
           className="w-full rounded-xl shadow-2xl shadow-black/60 ring-1 ring-black/40"
         />
@@ -382,7 +383,7 @@ function Section({
             {/* Card art cropped to its title band (top ~7%). */}
             {e.card.imageUrl ? (
               <img
-                src={e.card.imageUrl}
+                src={cachedImg(e.card.imageUrl)}
                 alt=""
                 loading="lazy"
                 className="absolute inset-0 h-full w-full object-cover object-[center_3%]"

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Card } from "../types/card";
 import { pitchColor, statDisplay } from "../lib/fab";
+import { cachedImg } from "../lib/img";
 
 interface CardTileProps {
   card: Card;
@@ -47,7 +48,7 @@ export function CardTile({ card, selected, onSelect, quantity, onMenu, dim, badg
 
       {showImage && (
         <img
-          src={card.imageUrl!}
+          src={cachedImg(card.imageUrl)}
           alt={card.name}
           loading="lazy"
           onError={() => setImgOk(false)}

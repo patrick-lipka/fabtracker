@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Card, DeckFormat, DeckSummary, OwnedCounts, ViewMode } from "../types/card";
 import { createDeck, listDecks, listHeroes } from "../lib/api";
 import { heroCategoryOk, heroFormatIssue } from "../lib/fab";
+import { cachedImg } from "../lib/img";
 import { CardGrid } from "./CardGrid";
 import { DeckEditor } from "./DeckEditor";
 import { DeckImport } from "./DeckImport";
@@ -225,7 +226,7 @@ function DeckCard({ deck, onOpen }: { deck: DeckSummary; onOpen: () => void }) {
     >
       {deck.heroImage ? (
         <img
-          src={deck.heroImage}
+          src={cachedImg(deck.heroImage)}
           alt=""
           className="absolute inset-0 h-full w-full scale-[1.6] object-cover object-[center_10%] transition group-hover:scale-[1.7]"
         />
@@ -251,7 +252,7 @@ function DeckRow({ deck, onOpen }: { deck: DeckSummary; onOpen: () => void }) {
       className="flex items-center gap-3 rounded-lg border border-border bg-surface-2 px-3 py-2 text-left transition hover:border-accent"
     >
       {deck.heroImage ? (
-        <img src={deck.heroImage} alt="" className="h-10 w-8 shrink-0 rounded object-cover object-top" />
+        <img src={cachedImg(deck.heroImage)} alt="" className="h-10 w-8 shrink-0 rounded object-cover object-top" />
       ) : (
         <div className="h-10 w-8 shrink-0 rounded bg-surface" />
       )}

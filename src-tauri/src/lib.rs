@@ -13,6 +13,7 @@ mod catalog;
 mod collection;
 mod db;
 mod deck;
+mod imagecache;
 mod search;
 
 use std::sync::Mutex;
@@ -402,6 +403,14 @@ pub fn run() {
         // A standard menu provides the Edit accelerators (Copy/Cut/Paste) that
         // text fields (e.g. the precon import box) need on macOS.
         .menu(|handle| tauri::menu::Menu::default(handle))
+        // Local cache for card images (cardimg://localhost/<encoded url>).
+        .register_asynchronous_uri_scheme_protocol("cardimg", |ctx, request, responder| {
+            let app = ctx.app_handle().clone();
+            let path = request.uri().path().to_string();
+            tauri::async_runtime::spawn(async move {
+                responder.respond(imagecache::serve(&app, &path).await);
+            });
+        })
         .setup(|app| {
             let dir = app
                 .path()

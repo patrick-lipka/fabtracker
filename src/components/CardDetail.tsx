@@ -9,6 +9,7 @@ import {
 } from "../types/card";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { cardmarketUrl, pitchColor, rarityColor, statDisplay } from "../lib/fab";
+import { cachedImg } from "../lib/img";
 
 interface CardDetailProps {
   card: Card | null;
@@ -236,7 +237,7 @@ function CardImage({ imageUrl, card }: { imageUrl: string | null; card: Card }) 
   if (imageUrl && imgOk) {
     return (
       <img
-        src={imageUrl}
+        src={cachedImg(imageUrl)}
         alt={card.name}
         onError={() => setImgOk(false)}
         className="mx-auto w-full max-w-[460px] rounded-2xl"

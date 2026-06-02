@@ -10,6 +10,7 @@ import type {
 } from "../types/card";
 import { addDeckToCollection, adjustEntry, cardEntries, getDeck, listBinders, moveEntry } from "../lib/api";
 import { pitchColor } from "../lib/fab";
+import { cachedImg } from "../lib/img";
 import { CardDetail } from "./CardDetail";
 import { DeckExport } from "./DeckExport";
 import { DeckStats } from "./DeckStats";
@@ -393,7 +394,7 @@ function CardRow({
 
 function CardImage({ card }: { card: Card }) {
   if (card.imageUrl) {
-    return <img src={card.imageUrl} alt={card.name} loading="lazy" className="w-full rounded-lg" />;
+    return <img src={cachedImg(card.imageUrl)} alt={card.name} loading="lazy" className="w-full rounded-lg" />;
   }
   return (
     <div
