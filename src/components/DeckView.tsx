@@ -12,6 +12,7 @@ import { adjustEntry, cardEntries, getDeck, listBinders, moveEntry } from "../li
 import { pitchColor } from "../lib/fab";
 import { CardDetail } from "./CardDetail";
 import { DeckStats } from "./DeckStats";
+import { NotesEditor } from "./NotesEditor";
 import { ResizablePane } from "./ResizablePane";
 import { ViewModeToggle } from "./ViewModeToggle";
 
@@ -39,6 +40,8 @@ export function DeckView({ deckId, onEdit, onBack }: DeckViewProps) {
     () => (localStorage.getItem("fabtracker:deckCardView") as ViewMode) || "medium",
   );
   useEffect(() => localStorage.setItem("fabtracker:deckCardView", view), [view]);
+
+  const [rightTab, setRightTab] = useState<"stats" | "notes">("stats");
 
   // Card inspected in the right pane (clicked in the gallery).
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
@@ -172,7 +175,31 @@ export function DeckView({ deckId, onEdit, onBack }: DeckViewProps) {
             </div>
           </div>
 
-          <DeckStats deck={deck} />
+          {/* Stats ⇄ Notes toggle (card details below stay put). */}
+          <div className="mb-3 flex rounded-lg border border-border bg-surface-2 p-0.5 text-xs">
+            {(["stats", "notes"] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setRightTab(t)}
+                className={`flex-1 rounded-md px-2 py-1.5 capitalize ${
+                  rightTab === t ? "bg-accent font-semibold text-black" : "text-gray-300 hover:text-white"
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+
+          {rightTab === "stats" ? (
+            <DeckStats deck={deck} />
+          ) : deck.notes?.trim() ? (
+            <NotesEditor key={`notes-${deckId}`} initial={deck.notes} readOnly />
+          ) : (
+            <p className="py-6 text-center text-sm text-muted">
+              No notes yet. Use <span className="text-gray-300">Edit deck</span> to add some.
+            </p>
+          )}
 
           {selectedCard && (
             <div className="-mx-4 mt-4 border-t border-border pt-1">

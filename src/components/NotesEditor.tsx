@@ -6,15 +6,19 @@ import "@milkdown/crepe/theme/nord-dark.css";
 interface NotesEditorProps {
   /** Initial Markdown (read once on mount — key by deck id to reset). */
   initial: string;
-  onChange: (markdown: string) => void;
+  /** Persist edits. Omitted/ignored when `readOnly`. */
+  onChange?: (markdown: string) => void;
+  /** Render the Markdown without allowing edits. */
+  readOnly?: boolean;
 }
 
 /**
  * An Obsidian-style live WYSIWYG Markdown editor (Milkdown "Crepe"). Edits round
  * -trip to Markdown, which we persist. Mount once per deck (caller keys it by
- * deck id); `onChange` is debounced by the caller.
+ * deck id); `onChange` is debounced by the caller. With `readOnly` it renders
+ * the same styled Markdown but blocks editing.
  */
-export function NotesEditor({ initial, onChange }: NotesEditorProps) {
+export function NotesEditor({ initial, onChange, readOnly = false }: NotesEditorProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
@@ -27,18 +31,24 @@ export function NotesEditor({ initial, onChange }: NotesEditorProps) {
 
     crepe.create().then(() => {
       if (destroyed) return;
+      if (readOnly) {
+        crepe.setReadonly(true);
+        return;
+      }
       crepe.on((listener) => {
-        listener.markdownUpdated((_ctx, markdown) => onChangeRef.current(markdown));
+        listener.markdownUpdated((_ctx, markdown) => onChangeRef.current?.(markdown));
       });
     });
 
     return () => {
       destroyed = true;
-      // Flush the latest content before tearing the editor down.
-      try {
-        onChangeRef.current(crepe.getMarkdown());
-      } catch {
-        /* editor may not have finished creating */
+      if (!readOnly) {
+        // Flush the latest content before tearing the editor down.
+        try {
+          onChangeRef.current?.(crepe.getMarkdown());
+        } catch {
+          /* editor may not have finished creating */
+        }
       }
       crepe.destroy();
     };
