@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import type { Card, DeckCardEntry, DeckDetail } from "../types/card";
+import type { Card, DeckCardEntry, DeckDetail, ViewMode } from "../types/card";
 import { getDeck } from "../lib/api";
 import { pitchColor } from "../lib/fab";
 import { DeckStats } from "./DeckStats";
+import { ViewModeToggle } from "./ViewModeToggle";
 
 interface DeckViewProps {
   deckId: number;
@@ -16,9 +17,18 @@ const FORMAT_NAME: Record<string, string> = {
   silver_age: "Silver Age",
 };
 
+type ImgView = Exclude<ViewMode, "list">;
+/** Image-grid column width and hero-card width per view size. */
+const COL_MIN: Record<ImgView, string> = { small: "110px", medium: "150px", large: "220px" };
+const HERO_W: Record<ImgView, string> = { small: "140px", medium: "180px", large: "240px" };
+
 /** Read-only deck view: full card images on the left, stats on the right. */
 export function DeckView({ deckId, onEdit, onBack }: DeckViewProps) {
   const [deck, setDeck] = useState<DeckDetail | null>(null);
+  const [view, setView] = useState<ViewMode>(
+    () => (localStorage.getItem("fabtracker:deckCardView") as ViewMode) || "medium",
+  );
+  useEffect(() => localStorage.setItem("fabtracker:deckCardView", view), [view]);
 
   useEffect(() => {
     getDeck(deckId).then(setDeck).catch(() => {});
@@ -43,10 +53,18 @@ export function DeckView({ deckId, onEdit, onBack }: DeckViewProps) {
     <div className="flex h-full min-h-0">
       {/* Card gallery */}
       <div className="min-w-0 flex-1 overflow-y-auto px-5 py-4">
-        {deck.hero && <HeroCard card={deck.hero} />}
-        <Group title="Weapons" entries={weapons} />
-        <Group title="Equipment" entries={equipment} />
-        <Group title={`Main deck · ${deck.legality.mainDeckCount}`} entries={main} />
+        <div className="mb-3 flex justify-end">
+          <ViewModeToggle mode={view} onChange={setView} />
+        </div>
+        {deck.hero &&
+          (view === "list" ? (
+            <Group title="Hero" entries={[{ card: deck.hero, quantity: 1, owned: 1, legal: true }]} view={view} />
+          ) : (
+            <HeroCard card={deck.hero} view={view} />
+          ))}
+        <Group title="Weapons" entries={weapons} view={view} />
+        <Group title="Equipment" entries={equipment} view={view} />
+        <Group title={`Main deck · ${deck.legality.mainDeckCount}`} entries={main} view={view} />
       </div>
 
       {/* Stats */}
@@ -110,34 +128,64 @@ export function DeckView({ deckId, onEdit, onBack }: DeckViewProps) {
   );
 }
 
-function HeroCard({ card }: { card: Card }) {
+function HeroCard({ card, view }: { card: Card; view: ImgView }) {
   return (
     <div className="mb-4">
       <SectionLabel>Hero</SectionLabel>
-      <div className="w-[180px]">
+      <div style={{ width: HERO_W[view] }}>
         <CardImage card={card} />
       </div>
     </div>
   );
 }
 
-function Group({ title, entries }: { title: string; entries: DeckCardEntry[] }) {
+function Group({ title, entries, view }: { title: string; entries: DeckCardEntry[]; view: ViewMode }) {
   if (entries.length === 0) return null;
   return (
     <div className="mb-4">
       <SectionLabel>{title}</SectionLabel>
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3">
-        {entries.map((e) => (
-          <div key={e.card.id} className="relative">
-            <CardImage card={e.card} />
-            {e.quantity > 1 && (
-              <span className="absolute left-1.5 top-1.5 rounded-md bg-black/75 px-1.5 py-0.5 text-xs font-bold text-amber-200 ring-1 ring-white/10">
-                ×{e.quantity}
-              </span>
-            )}
-          </div>
-        ))}
-      </div>
+      {view === "list" ? (
+        <div className="flex flex-col gap-1">
+          {entries.map((e) => (
+            <CardRow key={e.card.id} entry={e} />
+          ))}
+        </div>
+      ) : (
+        <div
+          className="grid gap-3"
+          style={{ gridTemplateColumns: `repeat(auto-fill,minmax(${COL_MIN[view]},1fr))` }}
+        >
+          {entries.map((e) => (
+            <div key={e.card.id} className="relative">
+              <CardImage card={e.card} />
+              {e.quantity > 1 && (
+                <span className="absolute left-1.5 top-1.5 rounded-md bg-black/75 px-1.5 py-0.5 text-xs font-bold text-amber-200 ring-1 ring-white/10">
+                  ×{e.quantity}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CardRow({ entry }: { entry: DeckCardEntry }) {
+  const { card, quantity } = entry;
+  return (
+    <div className="flex items-center gap-2 rounded-md border border-border bg-surface-2 px-2 py-1 text-sm">
+      <span className="w-7 shrink-0 text-right font-mono text-xs text-muted">{quantity}×</span>
+      <span
+        className="h-3.5 w-3.5 shrink-0 rounded-full ring-1 ring-white/10"
+        style={{ background: pitchColor(card.color) }}
+        title={card.color ? `Pitch ${card.pitch ?? "—"}` : undefined}
+      />
+      <span className="min-w-0 flex-1 truncate text-white">{card.name}</span>
+      <span className="shrink-0 text-xs text-muted">{card.typeText}</span>
+      {card.cost != null && (
+        <span className="w-6 shrink-0 text-right font-mono text-xs text-muted">{card.cost}</span>
+      )}
     </div>
   );
 }
