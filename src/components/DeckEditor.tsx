@@ -119,6 +119,9 @@ export function DeckEditor({ deckId, cards, onBack, onChanged, onDeleted }: Deck
   const weapons = group(isW);
   const equipment = group(isE);
   const main = group((e) => !isW(e) && !isE(e) && !e.card.types.includes("Token"));
+  const heroEntries: DeckCardEntry[] = deck.hero
+    ? [{ card: deck.hero, quantity: 1, owned: 0, legal: true }]
+    : [];
 
   return (
     <div className="flex h-full min-h-0">
@@ -215,19 +218,6 @@ export function DeckEditor({ deckId, cards, onBack, onChanged, onDeleted }: Deck
             </div>
           ) : (
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-          {/* Hero */}
-          {deck.hero && (
-            <div className="mb-3 flex items-center gap-3">
-              {deck.hero.imageUrl && (
-                <img src={deck.hero.imageUrl} alt={deck.hero.name} className="h-16 rounded-md" />
-              )}
-              <div className="min-w-0">
-                <div className="truncate font-semibold text-white">{deck.hero.name}</div>
-                <div className="truncate text-xs text-muted">{deck.hero.typeText}</div>
-              </div>
-            </div>
-          )}
-
           {/* Legality */}
           <Legality deck={deck} />
 
@@ -238,6 +228,7 @@ export function DeckEditor({ deckId, cards, onBack, onChanged, onDeleted }: Deck
           <Slots weapons={weapons} equipment={equipment} />
 
           {/* Card groups */}
+          <Section title="Hero" entries={heroEntries} onChange={change} onHover={showPreview} onLeave={hidePreview} fixed />
           <Section title="Weapons" entries={weapons} onChange={change} onHover={showPreview} onLeave={hidePreview} />
           <Section title="Equipment" entries={equipment} onChange={change} onHover={showPreview} onLeave={hidePreview} />
           <Section
@@ -355,12 +346,15 @@ function Section({
   onChange,
   onHover,
   onLeave,
+  fixed = false,
 }: {
   title: string;
   entries: DeckCardEntry[];
   onChange: (cardId: string, delta: number) => void;
   onHover: (card: Card, e: { clientX: number; clientY: number }) => void;
   onLeave: () => void;
+  /** Fixed rows (e.g. the hero): no quantity steppers, no "need" indicator. */
+  fixed?: boolean;
 }) {
   if (entries.length === 0) return null;
   return (
@@ -384,28 +378,32 @@ function Section({
             <span className={`min-w-0 flex-1 truncate ${e.legal ? "text-gray-200" : "text-red-400"}`}>
               {e.card.name}
             </span>
-            {e.owned < e.quantity && (
+            {!fixed && e.owned < e.quantity && (
               <span className="shrink-0 text-[10px] text-amber-300" title="More than you own">
                 need {e.quantity - e.owned}
               </span>
             )}
-            <div className="flex shrink-0 items-center gap-1">
-              <button
-                type="button"
-                onClick={() => onChange(e.card.id, -1)}
-                className="flex h-5 w-5 items-center justify-center rounded border border-border text-xs hover:border-accent"
-              >
-                −
-              </button>
-              <span className="w-4 text-center text-xs font-bold text-white">{e.quantity}</span>
-              <button
-                type="button"
-                onClick={() => onChange(e.card.id, 1)}
-                className="flex h-5 w-5 items-center justify-center rounded border border-border text-xs hover:border-accent"
-              >
-                +
-              </button>
-            </div>
+            {fixed ? (
+              <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted">Hero</span>
+            ) : (
+              <div className="flex shrink-0 items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => onChange(e.card.id, -1)}
+                  className="flex h-5 w-5 items-center justify-center rounded border border-border text-xs hover:border-accent"
+                >
+                  −
+                </button>
+                <span className="w-4 text-center text-xs font-bold text-white">{e.quantity}</span>
+                <button
+                  type="button"
+                  onClick={() => onChange(e.card.id, 1)}
+                  className="flex h-5 w-5 items-center justify-center rounded border border-border text-xs hover:border-accent"
+                >
+                  +
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>
