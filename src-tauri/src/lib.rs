@@ -24,7 +24,7 @@ use card::Card;
 use collection::{Binder, CardCollectionEntry, CollectionCard, EntryKey};
 use deck::{DeckDetail, DeckSummary};
 use rusqlite::Connection;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::{Manager, State};
 
 /// The single shared SQLite connection, guarded by a mutex (queries are short).
@@ -362,10 +362,39 @@ fn adjust_deck_card(
     deck::adjust_deck_card(&conn, deck_id, &card_id, delta)
 }
 
+/// A resolved (card id, quantity) pair from a parsed decklist.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ImportCardArg {
+    card_id: String,
+    quantity: i64,
+}
+
+/// Import a parsed decklist as a deck (optionally flagged as a precon). Card
+/// names are resolved to ids on the frontend (it has the full catalog).
+#[tauri::command]
+fn import_deck(
+    name: String,
+    format: String,
+    hero_id: String,
+    source_url: String,
+    is_precon: bool,
+    cards: Vec<ImportCardArg>,
+    db: State<'_, Db>,
+) -> Result<i64, String> {
+    let resolved: Vec<(String, i64)> =
+        cards.into_iter().map(|c| (c.card_id, c.quantity)).collect();
+    let mut conn = db.lock().map_err(|e| e.to_string())?;
+    deck::import_deck(&mut conn, name.trim(), &format, &hero_id, source_url.trim(), is_precon, &resolved)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        // A standard menu provides the Edit accelerators (Copy/Cut/Paste) that
+        // text fields (e.g. the precon import box) need on macOS.
+        .menu(|handle| tauri::menu::Menu::default(handle))
         .setup(|app| {
             let dir = app
                 .path()
@@ -404,6 +433,7 @@ pub fn run() {
             delete_deck,
             set_deck_notes,
             adjust_deck_card,
+            import_deck,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

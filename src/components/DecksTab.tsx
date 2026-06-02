@@ -4,6 +4,7 @@ import { createDeck, listDecks, listHeroes } from "../lib/api";
 import { heroLegalForFormat } from "../lib/fab";
 import { CardGrid } from "./CardGrid";
 import { DeckEditor } from "./DeckEditor";
+import { DeckImport } from "./DeckImport";
 import { DeckView } from "./DeckView";
 import { ViewModeToggle } from "./ViewModeToggle";
 
@@ -32,7 +33,7 @@ interface DecksTabProps {
   owned: OwnedCounts;
 }
 
-type Screen = "list" | "new" | "view" | "editor";
+type Screen = "list" | "new" | "view" | "editor" | "import";
 
 /** The "Decks" tab: deck list → hero picker → editor. */
 export function DecksTab({ cards, owned }: DecksTabProps) {
@@ -55,13 +56,45 @@ export function DecksTab({ cards, owned }: DecksTabProps) {
     setScreen("view");
   }
 
-  // Group decks by format for the image views; known formats first.
-  const formatGroups = useMemo(() => {
-    const present = [...new Set(decks.map((d) => d.format))].sort(
+  const myDecks = decks.filter((d) => !d.isPrecon);
+  const precons = decks.filter((d) => d.isPrecon);
+
+  // Group a deck list by format for the image views; known formats first.
+  const groupByFormat = (list: DeckSummary[]) => {
+    const present = [...new Set(list.map((d) => d.format))].sort(
       (a, b) => (FORMAT_ORDER.indexOf(a) + 1 || 99) - (FORMAT_ORDER.indexOf(b) + 1 || 99),
     );
-    return present.map((fmt) => [fmt, decks.filter((d) => d.format === fmt)] as const);
-  }, [decks]);
+    return present.map((fmt) => [fmt, list.filter((d) => d.format === fmt)] as const);
+  };
+
+  // Render one deck list in the current view (list rows or format-grouped grid).
+  const renderDecks = (list: DeckSummary[]) =>
+    view === "list" ? (
+      <div className="flex flex-col gap-1.5">
+        {list.map((d) => (
+          <DeckRow key={d.id} deck={d} onOpen={() => open(d.id)} />
+        ))}
+      </div>
+    ) : (
+      <div className="flex flex-col gap-6">
+        {groupByFormat(list).map(([fmt, group]) => (
+          <section key={fmt}>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+              {FORMAT_NAME[fmt] ?? fmt}
+              <span className="ml-2 normal-case text-muted/70">{group.length}</span>
+            </h3>
+            <div
+              className="grid gap-3"
+              style={{ gridTemplateColumns: `repeat(auto-fill,minmax(${COL_MIN[view]},1fr))` }}
+            >
+              {group.map((d) => (
+                <DeckCard key={d.id} deck={d} onOpen={() => open(d.id)} />
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+    );
 
   if (screen === "view" && editingId !== null) {
     return (
@@ -95,6 +128,20 @@ export function DecksTab({ cards, owned }: DecksTabProps) {
     );
   }
 
+  if (screen === "import") {
+    return (
+      <DeckImport
+        cards={cards}
+        onCancel={() => setScreen("list")}
+        onImported={(id) => {
+          refreshDecks();
+          setEditingId(id);
+          setScreen("view");
+        }}
+      />
+    );
+  }
+
   if (screen === "new") {
     // Step 1: pick a format. Step 2: pick a hero legal in that format.
     if (!newFormat) {
@@ -122,6 +169,13 @@ export function DecksTab({ cards, owned }: DecksTabProps) {
           {decks.length > 0 && <ViewModeToggle mode={view} onChange={setView} />}
           <button
             type="button"
+            onClick={() => setScreen("import")}
+            className="rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm text-gray-200 hover:border-accent hover:text-white"
+          >
+            Import
+          </button>
+          <button
+            type="button"
             onClick={() => {
               setNewFormat(null);
               setScreen("new");
@@ -137,32 +191,23 @@ export function DecksTab({ cards, owned }: DecksTabProps) {
         {decks.length === 0 ? (
           <div className="flex h-full items-center justify-center text-center text-muted">
             No decks yet. Click <span className="mx-1 font-semibold text-gray-300">+ New deck</span> to
-            pick a hero and start building.
-          </div>
-        ) : view === "list" ? (
-          <div className="flex flex-col gap-1.5">
-            {decks.map((d) => (
-              <DeckRow key={d.id} deck={d} onOpen={() => open(d.id)} />
-            ))}
+            pick a hero and start building, or <span className="mx-1 font-semibold text-gray-300">Import</span>{" "}
+            a decklist from Fabrary.
           </div>
         ) : (
-          <div className="flex flex-col gap-6">
-            {formatGroups.map(([fmt, group]) => (
-              <section key={fmt}>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
-                  {FORMAT_NAME[fmt] ?? fmt}
-                  <span className="ml-2 normal-case text-muted/70">{group.length}</span>
-                </h3>
-                <div
-                  className="grid gap-3"
-                  style={{ gridTemplateColumns: `repeat(auto-fill,minmax(${COL_MIN[view]},1fr))` }}
-                >
-                  {group.map((d) => (
-                    <DeckCard key={d.id} deck={d} onOpen={() => open(d.id)} />
-                  ))}
-                </div>
+          <div className="flex flex-col gap-8">
+            {myDecks.length > 0 && renderDecks(myDecks)}
+            {precons.length > 0 && (
+              <section>
+                <h2 className="mb-3 flex items-center gap-2 border-t border-border pt-4 text-sm font-semibold text-white">
+                  Imported precons
+                  <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-normal uppercase tracking-wide text-muted">
+                    {precons.length}
+                  </span>
+                </h2>
+                {renderDecks(precons)}
               </section>
-            ))}
+            )}
           </div>
         )}
       </div>

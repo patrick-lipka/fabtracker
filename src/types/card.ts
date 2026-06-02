@@ -129,6 +129,8 @@ export interface DeckSummary {
   heroImage: string | null;
   cardCount: number;
   updatedAt: number;
+  isPrecon: boolean;
+  sourceUrl: string;
 }
 
 export interface DeckCardEntry {

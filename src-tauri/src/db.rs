@@ -101,6 +101,12 @@ const MIGRATIONS_SLICE: &[M<'static>] = &[
     ),
     // v5 — free-form Markdown notes per deck (build / piloting notes).
     M::up("ALTER TABLE decks ADD COLUMN notes TEXT NOT NULL DEFAULT '';"),
+    // v6 — mark imported official precons (kept in a separate section) and
+    // remember where they came from.
+    M::up(
+        "ALTER TABLE decks ADD COLUMN is_precon INTEGER NOT NULL DEFAULT 0;
+         ALTER TABLE decks ADD COLUMN source_url TEXT NOT NULL DEFAULT '';",
+    ),
 ];
 
 const LAST_SYNCED_KEY: &str = "last_synced_ms";

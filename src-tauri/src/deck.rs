@@ -119,6 +119,8 @@ pub struct DeckSummary {
     pub hero_image: Option<String>,
     pub card_count: i64,
     pub updated_at: i64,
+    pub is_precon: bool,
+    pub source_url: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -187,6 +189,48 @@ pub fn create_deck(conn: &Connection, name: &str, format: &str, hero_id: &str) -
     )
     .map_err(|e| format!("create deck: {e}"))?;
     Ok(conn.last_insert_rowid())
+}
+
+/// Create a deck from a resolved card list (card_id, quantity) in one
+/// transaction — used by the importer. `is_precon` files it under the precons
+/// section. The hero is stored on the deck, not in `deck_cards`.
+pub fn import_deck(
+    conn: &mut Connection,
+    name: &str,
+    format: &str,
+    hero_id: &str,
+    source_url: &str,
+    is_precon: bool,
+    cards: &[(String, i64)],
+) -> Result<i64, String> {
+    let now = now_ms();
+    // Seed the deck notes with a link back to the source decklist.
+    let notes = if source_url.is_empty() {
+        String::new()
+    } else {
+        format!("Imported from [{0}]({0})", source_url)
+    };
+    let tx = conn.transaction().map_err(|e| format!("begin import: {e}"))?;
+    tx.execute(
+        "INSERT INTO decks (name, format, hero_id, created_at, updated_at, is_precon, source_url, notes)
+         VALUES (?1, ?2, ?3, ?4, ?4, ?5, ?6, ?7)",
+        params![name, format, hero_id, now, is_precon as i64, source_url, notes],
+    )
+    .map_err(|e| format!("create imported deck: {e}"))?;
+    let deck_id = tx.last_insert_rowid();
+    for (card_id, qty) in cards {
+        if *qty <= 0 {
+            continue;
+        }
+        tx.execute(
+            "INSERT INTO deck_cards (deck_id, card_id, quantity) VALUES (?1, ?2, ?3)
+             ON CONFLICT(deck_id, card_id) DO UPDATE SET quantity = quantity + ?3",
+            params![deck_id, card_id, qty],
+        )
+        .map_err(|e| format!("insert precon card: {e}"))?;
+    }
+    tx.commit().map_err(|e| format!("commit import: {e}"))?;
+    Ok(deck_id)
 }
 
 pub fn rename_deck(conn: &Connection, id: i64, name: &str) -> Result<(), String> {
@@ -276,7 +320,7 @@ pub fn list_decks(conn: &Connection) -> Result<Vec<DeckSummary>, String> {
             "SELECT d.id, d.name, d.format, d.hero_id, c.name,
                     json_extract(c.data, '$.imageUrl'),
                     (SELECT COALESCE(SUM(quantity), 0) FROM deck_cards dc WHERE dc.deck_id = d.id),
-                    d.updated_at
+                    d.updated_at, d.is_precon, d.source_url
              FROM decks d
              LEFT JOIN cards c ON c.id = d.hero_id
              ORDER BY d.updated_at DESC",
@@ -293,6 +337,8 @@ pub fn list_decks(conn: &Connection) -> Result<Vec<DeckSummary>, String> {
                 hero_image: r.get(5)?,
                 card_count: r.get(6)?,
                 updated_at: r.get(7)?,
+                is_precon: r.get::<_, i64>(8)? != 0,
+                source_url: r.get(9)?,
             })
         })
         .map_err(|e| format!("query decks: {e}"))?;

@@ -7,6 +7,26 @@ The roadmap below it is the north star; the original vision follows.
 
 ## Log
 
+### 2026-06-02 — Import decklists from Fabrary (precons + decks) ✅
+- **Decks → Import**: paste a Fabrary text export (`Copy card list to clipboard`)
+  and save it as a deck. An **Import as: Precon / Deck** toggle flags it; precons
+  show in a separate **Imported precons** section on the Decks tab, regular
+  imports go to **My Decks**. Source URL (parsed from the export, editable) is
+  stored and seeded into the deck notes as a link.
+- Parser/resolver in `src/lib/decklist.ts`: reads the `Name:` / `Hero:` /
+  `Format:` header (resolves the hero from the `Hero:` line), skips
+  `Arena cards` / `Deck cards` headers and the footer, handles `Nx Name`,
+  `(red/yellow/blue)` pitch, and collector numbers; resolves names → catalog
+  card ids in the frontend; surfaces unmatched lines. Backend `import_deck`
+  (migration v6: `decks.is_precon` + `source_url`) inserts in one transaction.
+- **Why no in-app browser / API pull:** researched LSS CardVault (official
+  product list, but no decklists/quantities), the-fab-cube (precon *sets* =
+  distinct cards only, no copy counts), and Fabrary (full lists, but key-gated
+  backend — off limits). An embedded Fabrary webview was prototyped and dropped:
+  WKWebView can't run Fabrary's async `clipboard.write([ClipboardItem])` copy
+  (only sync `writeText` works), making the copy step a dead end. So the user
+  copies in their own browser and pastes here — the principled, reliable path.
+
 ### 2026-06-02 — Deck view (card gallery) as the default; Edit Deck button ✅
 - Opening a deck now shows a read-only **deck view** (`DeckView`): full card
   images grouped Hero / Weapons / Equipment / Main deck (×N badges) on the left,

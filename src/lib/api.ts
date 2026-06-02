@@ -187,3 +187,22 @@ export function setDeckNotes(id: number, notes: string): Promise<void> {
 export function adjustDeckCard(deckId: number, cardId: string, delta: number): Promise<void> {
   return invoke("adjust_deck_card", { deckId, cardId, delta });
 }
+
+// --- Precons ----------------------------------------------------------------
+
+export interface PreconCard {
+  cardId: string;
+  quantity: number;
+}
+
+/** Import a parsed decklist as a deck (optionally a precon); returns its id. */
+export function importDeck(
+  name: string,
+  format: string,
+  heroId: string,
+  sourceUrl: string,
+  isPrecon: boolean,
+  cards: PreconCard[],
+): Promise<number> {
+  return invoke<number>("import_deck", { name, format, heroId, sourceUrl, isPrecon, cards });
+}
