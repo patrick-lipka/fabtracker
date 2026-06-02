@@ -1,7 +1,16 @@
 import { useEffect, useState } from "react";
-import type { Card, DeckCardEntry, DeckDetail, ViewMode } from "../types/card";
-import { getDeck } from "../lib/api";
+import type {
+  Binder,
+  Card,
+  CardCollectionEntry,
+  DeckCardEntry,
+  DeckDetail,
+  EntryKey,
+  ViewMode,
+} from "../types/card";
+import { adjustEntry, cardEntries, getDeck, listBinders, moveEntry } from "../lib/api";
 import { pitchColor } from "../lib/fab";
+import { CardDetail } from "./CardDetail";
 import { DeckStats } from "./DeckStats";
 import { ViewModeToggle } from "./ViewModeToggle";
 
@@ -30,9 +39,39 @@ export function DeckView({ deckId, onEdit, onBack }: DeckViewProps) {
   );
   useEffect(() => localStorage.setItem("fabtracker:deckCardView", view), [view]);
 
+  // Card inspected in the right pane (clicked in the gallery).
+  const [selectedCard, setSelectedCard] = useState<Card | null>(null);
+  const [binders, setBinders] = useState<Binder[]>([]);
+  const [entries, setEntries] = useState<CardCollectionEntry[]>([]);
+  const [collVersion, setCollVersion] = useState(0);
+
   useEffect(() => {
     getDeck(deckId).then(setDeck).catch(() => {});
+    setSelectedCard(null);
   }, [deckId]);
+
+  // Refetch the deck after a collection edit so owned/missing stay correct.
+  function bumpColl() {
+    setCollVersion((v) => v + 1);
+    getDeck(deckId).then(setDeck).catch(() => {});
+  }
+
+  useEffect(() => {
+    listBinders().then(setBinders).catch(() => {});
+  }, [collVersion]);
+
+  useEffect(() => {
+    if (!selectedCard) {
+      setEntries([]);
+      return;
+    }
+    cardEntries(selectedCard.id).then(setEntries).catch(() => setEntries([]));
+  }, [selectedCard, collVersion]);
+
+  const handleAdjustEntry = (binderId: number, key: EntryKey, delta: number) =>
+    adjustEntry(binderId, key, delta).then(bumpColl).catch(() => {});
+  const handleMoveEntry = (from: number, to: number, key: EntryKey, qty: number) =>
+    moveEntry(from, to, key, qty).then(bumpColl).catch(() => {});
 
   if (!deck) {
     return <div className="flex h-full items-center justify-center text-muted">Loading deck…</div>;
@@ -58,13 +97,24 @@ export function DeckView({ deckId, onEdit, onBack }: DeckViewProps) {
         </div>
         {deck.hero &&
           (view === "list" ? (
-            <Group title="Hero" entries={[{ card: deck.hero, quantity: 1, owned: 1, legal: true }]} view={view} />
+            <Group
+              title="Hero"
+              entries={[{ card: deck.hero, quantity: 1, owned: 1, legal: true }]}
+              view={view}
+              selectedId={selectedCard?.id ?? null}
+              onSelect={setSelectedCard}
+            />
           ) : (
-            <HeroCard card={deck.hero} view={view} />
+            <HeroCard
+              card={deck.hero}
+              view={view}
+              selected={selectedCard?.id === deck.hero.id}
+              onSelect={setSelectedCard}
+            />
           ))}
-        <Group title="Weapons" entries={weapons} view={view} />
-        <Group title="Equipment" entries={equipment} view={view} />
-        <Group title={`Main deck · ${deck.legality.mainDeckCount}`} entries={main} view={view} />
+        <Group title="Weapons" entries={weapons} view={view} selectedId={selectedCard?.id ?? null} onSelect={setSelectedCard} />
+        <Group title="Equipment" entries={equipment} view={view} selectedId={selectedCard?.id ?? null} onSelect={setSelectedCard} />
+        <Group title={`Main deck · ${deck.legality.mainDeckCount}`} entries={main} view={view} selectedId={selectedCard?.id ?? null} onSelect={setSelectedCard} />
       </div>
 
       {/* Stats */}
@@ -122,24 +172,65 @@ export function DeckView({ deckId, onEdit, onBack }: DeckViewProps) {
           </div>
 
           <DeckStats deck={deck} />
+
+          {selectedCard && (
+            <div className="-mx-4 mt-4 border-t border-border pt-1">
+              <CardDetail
+                card={selectedCard}
+                view="browse"
+                onSearch={() => {}}
+                binders={binders}
+                entries={entries}
+                onAdjustEntry={handleAdjustEntry}
+                onMoveEntry={handleMoveEntry}
+              />
+            </div>
+          )}
         </div>
       </aside>
     </div>
   );
 }
 
-function HeroCard({ card, view }: { card: Card; view: ImgView }) {
+function HeroCard({
+  card,
+  view,
+  selected,
+  onSelect,
+}: {
+  card: Card;
+  view: ImgView;
+  selected: boolean;
+  onSelect: (card: Card) => void;
+}) {
   return (
     <div className="mb-4">
       <SectionLabel>Hero</SectionLabel>
-      <div style={{ width: HERO_W[view] }}>
+      <button
+        type="button"
+        onClick={() => onSelect(card)}
+        style={{ width: HERO_W[view] }}
+        className={`block overflow-hidden rounded-lg ${selected ? "ring-2 ring-accent" : ""}`}
+      >
         <CardImage card={card} />
-      </div>
+      </button>
     </div>
   );
 }
 
-function Group({ title, entries, view }: { title: string; entries: DeckCardEntry[]; view: ViewMode }) {
+function Group({
+  title,
+  entries,
+  view,
+  selectedId,
+  onSelect,
+}: {
+  title: string;
+  entries: DeckCardEntry[];
+  view: ViewMode;
+  selectedId: string | null;
+  onSelect: (card: Card) => void;
+}) {
   if (entries.length === 0) return null;
   return (
     <div className="mb-4">
@@ -147,7 +238,7 @@ function Group({ title, entries, view }: { title: string; entries: DeckCardEntry
       {view === "list" ? (
         <div className="flex flex-col gap-1">
           {entries.map((e) => (
-            <CardRow key={e.card.id} entry={e} />
+            <CardRow key={e.card.id} entry={e} selected={e.card.id === selectedId} onSelect={onSelect} />
           ))}
         </div>
       ) : (
@@ -156,14 +247,21 @@ function Group({ title, entries, view }: { title: string; entries: DeckCardEntry
           style={{ gridTemplateColumns: `repeat(auto-fill,minmax(${COL_MIN[view]},1fr))` }}
         >
           {entries.map((e) => (
-            <div key={e.card.id} className="relative">
+            <button
+              type="button"
+              key={e.card.id}
+              onClick={() => onSelect(e.card)}
+              className={`relative block overflow-hidden rounded-lg ${
+                e.card.id === selectedId ? "ring-2 ring-accent" : ""
+              }`}
+            >
               <CardImage card={e.card} />
               {e.quantity > 1 && (
                 <span className="absolute left-1.5 top-1.5 rounded-md bg-black/75 px-1.5 py-0.5 text-xs font-bold text-amber-200 ring-1 ring-white/10">
                   ×{e.quantity}
                 </span>
               )}
-            </div>
+            </button>
           ))}
         </div>
       )}
@@ -171,10 +269,24 @@ function Group({ title, entries, view }: { title: string; entries: DeckCardEntry
   );
 }
 
-function CardRow({ entry }: { entry: DeckCardEntry }) {
+function CardRow({
+  entry,
+  selected,
+  onSelect,
+}: {
+  entry: DeckCardEntry;
+  selected: boolean;
+  onSelect: (card: Card) => void;
+}) {
   const { card, quantity } = entry;
   return (
-    <div className="flex items-center gap-2 rounded-md border border-border bg-surface-2 px-2 py-1 text-sm">
+    <button
+      type="button"
+      onClick={() => onSelect(card)}
+      className={`flex w-full items-center gap-2 rounded-md border bg-surface-2 px-2 py-1 text-left text-sm ${
+        selected ? "border-accent ring-1 ring-accent/50" : "border-border"
+      }`}
+    >
       <span className="w-7 shrink-0 text-right font-mono text-xs text-muted">{quantity}×</span>
       <span
         className="h-3.5 w-3.5 shrink-0 rounded-full ring-1 ring-white/10"
@@ -186,7 +298,7 @@ function CardRow({ entry }: { entry: DeckCardEntry }) {
       {card.cost != null && (
         <span className="w-6 shrink-0 text-right font-mono text-xs text-muted">{card.cost}</span>
       )}
-    </div>
+    </button>
   );
 }
 
