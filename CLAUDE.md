@@ -57,14 +57,19 @@ Requires Rust ≥ 1.85 (`rustup update stable`) and Node ≥ 20.
   clickable per printing. Catalog changes need a Re-sync to take effect.
 - Decks: `src-tauri/src/deck.rs` — `decks` + `deck_cards` (migration v4).
   `get_deck` computes resolved cards (+owned), cost curve, pitch counts,
-  missing-vs-collection, and legality (format size + per-name copy limits + hero
-  class/talent via an `IDENTITY` word set, mirrored in `lib/fab.ts`
-  `legalForHero`). Commands: list_heroes, list_decks, create_deck, get_deck,
-  rename_deck, set_deck_format, delete_deck, adjust_deck_card, import_deck.
-  Frontend: `DecksTab` (list → hero picker → editor) + `DeckEditor` (pool reuses
-  `CardGrid`). Legality covers format size + copy limits + hero class/talent +
-  per-format bans / Living Legend / suspensions (flags ingested onto `Card` as
-  `Option<bool>` — need a Re-sync to populate; `formatAllowed`/`legalForDeck`
+  missing-vs-collection, and legality. Class/talent legality uses separate
+  `CLASSES`/`TALENTS` word sets (mirrored in `lib/fab.ts`): a card is legal if
+  the hero shares ≥1 of its classes (multi-class cards work for any class) and
+  ≥1 talent. Commands: list_heroes, list_decks, create_deck, get_deck,
+  rename_deck, set_deck_format, delete_deck, adjust_deck_card, import_deck,
+  add_deck_to_collection. Frontend: `DecksTab` (list → hero picker → editor) +
+  `DeckEditor` (pool reuses `CardGrid`). Per-format legality:
+  CC (deck ≥60, pool ≤80, ≤3 per name+color, adult hero),
+  Blitz (deck =40, ≤2 per name, young hero),
+  Silver Age (deck per-game, pool ≤55, ≤2 per name+color, young hero,
+  common/rare/basic rarity by ever-printed). Card-pools are a *maximum* size.
+  Plus per-format bans / Living Legend / suspensions (flags ingested onto `Card`
+  as `Option<bool>` — need a Re-sync to populate; `formatAllowed`/`legalForDeck`
   mirror in `fab.ts`). Formats: CC / Blitz / Silver Age. Slots overview is
   informational. Deferred: specialization cards, Commoner, hard slot caps. Per-deck Markdown notes via Milkdown Crepe (`NotesEditor`); `set_deck_notes` + `notes` column (migration v5).
 - Deck import: `Decks → Import` pastes a Fabrary text export → `DeckImport`

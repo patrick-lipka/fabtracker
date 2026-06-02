@@ -23,9 +23,9 @@ const COL_MIN: Record<Exclude<ViewMode, "list">, string> = {
 };
 
 const FORMATS: { value: DeckFormat; name: string; blurb: string }[] = [
-  { value: "cc", name: "Classic Constructed", blurb: "≥60 cards · max 3 of a name · adult heroes" },
+  { value: "cc", name: "Classic Constructed", blurb: "60+ card deck · up to 80-card pool · max 3 per name+color · adult hero" },
   { value: "blitz", name: "Blitz", blurb: "40 cards · max 2 of a name · young heroes" },
-  { value: "silver_age", name: "Silver Age", blurb: "40 cards · max 2 per name+color · young heroes · Silver Age pool" },
+  { value: "silver_age", name: "Silver Age", blurb: "40-card deck · up to 55-card pool · max 2 per name+color · young hero · common/rare/basic only" },
 ];
 
 interface DecksTabProps {

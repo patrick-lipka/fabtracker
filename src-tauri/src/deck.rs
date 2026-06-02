@@ -14,15 +14,16 @@ use serde::Serialize;
 use crate::card::Card;
 use crate::collection;
 
-/// Class (excluding Generic) and talent words used to decide hero legality.
-/// Unknown new words are treated as "no identity" (lenient — never wrongly
-/// blocks); extend this list as the game adds classes/talents.
-const IDENTITY: &[&str] = &[
-    // Classes
+/// Class and talent words used to decide hero legality. Kept separate because a
+/// multi-class card (e.g. Brute/Warrior) is legal for a hero of *either* class,
+/// while a card's talent must also match. Unknown new words are treated as "no
+/// identity" (lenient — never wrongly blocks); extend as the game adds words.
+const CLASSES: &[&str] = &[
     "Brute", "Guardian", "Ninja", "Warrior", "Mechanologist", "Ranger",
     "Runeblade", "Wizard", "Illusionist", "Assassin", "Bard", "Merchant",
     "Necromancer", "Shapeshifter", "Pirate",
-    // Talents
+];
+const TALENTS: &[&str] = &[
     "Draconic", "Earth", "Elemental", "Ice", "Light", "Lightning", "Royal",
     "Shadow", "Chaos", "Mystic",
 ];
@@ -45,22 +46,31 @@ fn is_main_deck(card: &Card) -> bool {
         && !has_type(card, "Token")
 }
 
+fn words_in(types: &[String], set: &[&str]) -> Vec<String> {
+    types.iter().filter(|t| set.contains(&t.as_str())).cloned().collect()
+}
+
+/// The hero's class + talent words (used to test cards against).
 fn identity_of(types: &[String]) -> Vec<String> {
     types
         .iter()
-        .filter(|t| IDENTITY.contains(&t.as_str()))
+        .filter(|t| CLASSES.contains(&t.as_str()) || TALENTS.contains(&t.as_str()))
         .cloned()
         .collect()
 }
 
-/// A card is legal in a hero's deck if it's Generic, or all of its class/talent
-/// identity words are shared by the hero.
+/// A card is legal in a hero's deck if it's Generic, or the hero shares at least
+/// one of the card's classes (multi-class cards work for any of their classes)
+/// and at least one of its talents.
 fn legal_for_hero(card: &Card, hero_identity: &HashSet<String>) -> bool {
     if has_type(card, "Generic") {
         return true;
     }
-    let ci = identity_of(&card.types);
-    ci.is_empty() || ci.iter().all(|w| hero_identity.contains(w))
+    let classes = words_in(&card.types, CLASSES);
+    let talents = words_in(&card.types, TALENTS);
+    let class_ok = classes.is_empty() || classes.iter().any(|c| hero_identity.contains(c));
+    let talent_ok = talents.is_empty() || talents.iter().any(|t| hero_identity.contains(t));
+    class_ok && talent_ok
 }
 
 /// Per-format legality flags for a card (None where unknown / not yet synced).
@@ -102,6 +112,26 @@ fn format_allowed(card: &Card, format: &str) -> bool {
         && r.banned != Some(true)
         && r.living_legend != Some(true)
         && r.suspended != Some(true)
+}
+
+/// Silver Age allows only common / rare / basic (formerly token) rarity cards,
+/// counting a card as that rarity if it has *ever* been printed at it.
+const SA_RARITIES: &[&str] = &["Common", "Rare", "Basic", "Token"];
+fn sa_rarity_ok(card: &Card) -> bool {
+    if card.printings.is_empty() {
+        return SA_RARITIES.contains(&card.rarity.as_str());
+    }
+    card.printings.iter().any(|p| SA_RARITIES.contains(&p.rarity.as_str()))
+}
+
+/// Whether a card may be in a deck of `format` (format flags + Silver Age rarity).
+fn card_format_ok(card: &Card, format: &str) -> bool {
+    format_allowed(card, format) && (format != "silver_age" || sa_rarity_ok(card))
+}
+
+/// Cards that count toward a deck's size / pool (everything but tokens & hero).
+fn is_pool_card(card: &Card) -> bool {
+    !card.is_hero && !has_type(card, "Token")
 }
 
 // --------------------------------------------------------------------------
@@ -433,7 +463,7 @@ pub fn get_deck(conn: &Connection, id: i64) -> Result<DeckDetail, String> {
     for row in rows {
         let (card_id, quantity) = row.map_err(|e| format!("read row: {e}"))?;
         if let Some(card) = load_card(conn, &card_id)? {
-            let legal = legal_for_hero(&card, &hero_identity) && format_allowed(&card, &format);
+            let legal = legal_for_hero(&card, &hero_identity) && card_format_ok(&card, &format);
             cards.push(DeckCardEntry {
                 owned: owned.get(&card_id).copied().unwrap_or(0),
                 legal,
@@ -511,14 +541,18 @@ fn compute_legality(
     hero: Option<&Card>,
     hero_identity: &HashSet<String>,
 ) -> Legality {
-    // Construction rules per format:
-    //   CC          — >=60 main-deck cards, max 3 per name (adult hero).
+    // Construction rules per format (copy limits count unique = name + color):
+    //   CC          — >=60 main-deck cards + a pool of up to 80, max 3, adult.
     //   Blitz       — exactly 40, max 2 per name (young hero).
-    //   Silver Age  — exactly 40, max 2 per name+color (young hero, SA pool).
-    let (size_ok, required, max_copies, per_color) = match format {
-        "blitz" => (main_deck_count == 40, "40".to_string(), 2, false),
-        "silver_age" => (main_deck_count == 40, "40".to_string(), 2, true),
-        _ => (main_deck_count >= 60, "60+".to_string(), 3, false),
+    //   Silver Age  — 40-card deck (built per game) + a pool of up to 55, max 2,
+    //                 young hero, common/rare/basic rarity only.
+    // CC and Silver Age register a *pool* (arena + deck) with a maximum size; the
+    // deck is built per game, so we cap the pool (and, for CC, require >=60 deck).
+    let is_sa = format == "silver_age";
+    let (size_ok, required, max_copies, per_color, pool_max) = match format {
+        "blitz" => (main_deck_count == 40, "40".to_string(), 2, false, None),
+        "silver_age" => (true, "≤55 pool".to_string(), 2, true, Some(55)),
+        _ => (main_deck_count >= 60, "60+".to_string(), 3, true, Some(80)),
     };
 
     let mut issues = Vec::new();
@@ -528,9 +562,16 @@ fn compute_legality(
     if !size_ok {
         issues.push(format!("Main deck has {main_deck_count} cards (needs {required})"));
     }
+    // Pool formats (arena cards + deck): the registered pool has a max size.
+    if let Some(max) = pool_max {
+        let pool: i64 = cards.iter().filter(|c| is_pool_card(&c.card)).map(|c| c.quantity).sum();
+        if pool > max {
+            issues.push(format!("Card-pool has {pool} cards (max {max})"));
+        }
+    }
 
-    // Copy limits. Pitch variants share a name (CC/Blitz); Silver Age counts by
-    // name + color, so different-pitch copies are limited independently.
+    // Copy limits. CC / Silver Age count uniques by name + color (different-pitch
+    // copies are limited independently); Blitz counts by name.
     let mut by_key: HashMap<String, (i64, &str)> = HashMap::new();
     for c in cards {
         let key = if per_color {
@@ -562,11 +603,21 @@ fn compute_legality(
         } else if r.legal == Some(false) {
             issues.push(format!("Hero {} is not legal in this format", h.name));
         }
+        // Young hero for Blitz / Silver Age; adult hero for Classic Constructed.
+        let young = has_type(h, "Young");
+        if (format == "blitz" || is_sa) && !young {
+            issues.push(format!("Hero {} isn't a young hero", h.name));
+        } else if format != "blitz" && !is_sa && young {
+            issues.push(format!("Hero {} is a young hero (CC uses adult heroes)", h.name));
+        }
+        if is_sa && !sa_rarity_ok(h) {
+            issues.push(format!("Hero {} isn't common/rare/basic rarity (Silver Age)", h.name));
+        }
     }
 
-    // Per-card reasons (class/talent + format bans/LL/suspensions).
-    let (mut off_class, mut banned, mut ll, mut susp, mut not_legal) =
-        (Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new());
+    // Per-card reasons (class/talent + format bans/LL/suspensions + SA rarity).
+    let (mut off_class, mut banned, mut ll, mut susp, mut not_legal, mut wrong_rarity) =
+        (Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new());
     for c in cards {
         let name = c.card.name.as_str();
         if !legal_for_hero(&c.card, hero_identity) {
@@ -582,6 +633,9 @@ fn compute_legality(
         } else if r.legal == Some(false) {
             not_legal.push(name);
         }
+        if is_sa && !sa_rarity_ok(&c.card) {
+            wrong_rarity.push(name);
+        }
     }
     for (label, list) in [
         ("Off-class for hero", off_class),
@@ -589,6 +643,7 @@ fn compute_legality(
         ("Living Legend", ll),
         ("Suspended", susp),
         ("Not legal in format", not_legal),
+        ("Wrong rarity for Silver Age", wrong_rarity),
     ] {
         if !list.is_empty() {
             issues.push(summarize(label, list));
@@ -700,6 +755,80 @@ mod tests {
 
         delete_deck(&conn, id).unwrap();
         assert!(list_decks(&conn).unwrap().is_empty());
+    }
+
+    #[test]
+    fn multiclass_card_legal_for_either_class() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
+        db::run_migrations(&mut conn).unwrap();
+        db::replace_cards(
+            &mut conn,
+            &[
+                hero("BR", "Rhinar", &["Brute", "Hero"]),
+                mk("mc", "Agile Windup", &["Brute", "Warrior", "Action", "Attack"], Some(0)),
+                mk("warr", "Wounding Blow", &["Warrior", "Action", "Attack"], Some(1)),
+            ],
+        )
+        .unwrap();
+        let id = create_deck(&conn, "T", "blitz", "BR").unwrap();
+        adjust_deck_card(&conn, id, "mc", 1).unwrap();
+        adjust_deck_card(&conn, id, "warr", 1).unwrap();
+        let d = get_deck(&conn, id).unwrap();
+        let legal = |name: &str| d.cards.iter().find(|c| c.card.name == name).unwrap().legal;
+        // Brute hero: a Brute/Warrior card is legal; a pure Warrior card is not.
+        assert!(legal("Agile Windup"));
+        assert!(!legal("Wounding Blow"));
+    }
+
+    #[test]
+    fn cc_copies_count_name_plus_color() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
+        db::run_migrations(&mut conn).unwrap();
+        let mut red = mk("r", "Sink Below", &["Generic", "Defense Reaction"], Some(0));
+        red.color = Some("Red".into());
+        let mut blue = mk("b", "Sink Below", &["Generic", "Defense Reaction"], Some(0));
+        blue.color = Some("Blue".into());
+        db::replace_cards(&mut conn, &[hero("H", "Dorinthea", &["Warrior", "Hero"]), red, blue]).unwrap();
+        let id = create_deck(&conn, "T", "cc", "H").unwrap();
+        adjust_deck_card(&conn, id, "r", 3).unwrap();
+        adjust_deck_card(&conn, id, "b", 3).unwrap();
+        // 3 red + 3 blue of the same name is fine (unique = name + color).
+        let d = get_deck(&conn, id).unwrap();
+        assert!(!d.legality.issues.iter().any(|i| i.contains("(max 3)")));
+        // A 4th red copy exceeds the per-(name+color) limit.
+        adjust_deck_card(&conn, id, "r", 1).unwrap();
+        let d = get_deck(&conn, id).unwrap();
+        assert!(d.legality.issues.iter().any(|i| i.contains("Sink Below: 4 copies (max 3)")));
+    }
+
+    #[test]
+    fn silver_age_rarity_and_pool() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
+        db::run_migrations(&mut conn).unwrap();
+        let mut maj = mk("maj", "Fancy Card", &["Ninja", "Action", "Attack"], Some(0));
+        maj.rarity = "Majestic".into(); // never printed common/rare/basic
+        db::replace_cards(
+            &mut conn,
+            &[
+                hero("Y", "Katsu, Young", &["Ninja", "Hero", "Young"]),
+                mk("c", "Common Card", &["Ninja", "Action"], Some(0)),
+                maj,
+            ],
+        )
+        .unwrap();
+        let id = create_deck(&conn, "T", "silver_age", "Y").unwrap();
+        adjust_deck_card(&conn, id, "c", 1).unwrap();
+        adjust_deck_card(&conn, id, "maj", 1).unwrap();
+        let d = get_deck(&conn, id).unwrap();
+        let legal = |n: &str| d.cards.iter().find(|c| c.card.name == n).unwrap().legal;
+        assert!(legal("Common Card"));
+        assert!(!legal("Fancy Card")); // majestic-only → not Silver Age legal
+        assert!(d.legality.issues.iter().any(|i| i.contains("Wrong rarity")));
+        // The pool is a *maximum*; a small pool isn't flagged.
+        assert!(!d.legality.issues.iter().any(|i| i.contains("Card-pool")));
     }
 
     #[test]

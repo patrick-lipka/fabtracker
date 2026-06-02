@@ -7,6 +7,20 @@ The roadmap below it is the north star; the original vision follows.
 
 ## Log
 
+### 2026-06-02 — Legality: multi-class cards + CC/Silver Age rules ✅
+- **Multi-class cards** (e.g. Brute/Warrior, Pirate/Necromancer) are now legal
+  for a hero of *any* of their classes (talent must still match). Split the
+  IDENTITY set into CLASSES/TALENTS and changed the rule from "hero shares all
+  identity words" to "shares ≥1 class and ≥1 talent" (backend + `fab.ts`).
+- **Silver Age**: only common/rare/basic rarity (by *ever-printed* rarity, cards
+  + hero); pool (arena + deck) **max 55**; ≤2 per unique (name+color); young
+  hero. The 40-card deck is per-game, so we cap the pool rather than fix the deck.
+- **Classic Constructed**: copies are now per unique (**name + color**), max 3
+  (was per name); deck ≥60 **and** pool **max 80**; adult (non-young) hero.
+- Card-pools are a **maximum**, not a fixed size — only flagged when exceeded.
+- The hero young/adult requirement is now enforced in the deck legality too (was
+  only at hero-pick time). Per-format ban/LL/suspended lists still need a Re-sync.
+
 ### 2026-06-02 — Add a deck's cards to a binder ✅
 - The deck view's right pane gains an **Add to collection** block: pick a binder
   and **Add all** adds the hero + every card at the deck's quantities (newest

@@ -4,23 +4,32 @@
 
 import type { Card } from "../types/card";
 
-/** Class (excl. Generic) + talent words — mirror of `deck.rs` IDENTITY. */
-const DECK_IDENTITY = new Set([
+// Class and talent words — mirror of `deck.rs`. Kept separate so a multi-class
+// card is legal for a hero of *any* of its classes (talent must also match).
+const CLASSES = new Set([
   "Brute", "Guardian", "Ninja", "Warrior", "Mechanologist", "Ranger",
   "Runeblade", "Wizard", "Illusionist", "Assassin", "Bard", "Merchant",
   "Necromancer", "Shapeshifter", "Pirate",
+]);
+const TALENTS = new Set([
   "Draconic", "Earth", "Elemental", "Ice", "Light", "Lightning", "Royal",
   "Shadow", "Chaos", "Mystic",
 ]);
 
-/** Whether a card may be included in a hero's deck (class/talent legality). */
+/**
+ * Whether a card may be included in a hero's deck: Generic, or the hero shares
+ * at least one of the card's classes (multi-class cards work for any of their
+ * classes) and at least one of its talents.
+ */
 export function legalForHero(card: Card, hero: Card | null): boolean {
   if (!hero) return true;
   if (card.types.includes("Generic")) return true;
-  const cardIdentity = card.types.filter((t) => DECK_IDENTITY.has(t));
-  if (cardIdentity.length === 0) return true;
-  const heroIdentity = new Set(hero.types.filter((t) => DECK_IDENTITY.has(t)));
-  return cardIdentity.every((w) => heroIdentity.has(w));
+  const heroWords = new Set(hero.types);
+  const classes = card.types.filter((t) => CLASSES.has(t));
+  const talents = card.types.filter((t) => TALENTS.has(t));
+  const classOk = classes.length === 0 || classes.some((c) => heroWords.has(c));
+  const talentOk = talents.length === 0 || talents.some((t) => heroWords.has(t));
+  return classOk && talentOk;
 }
 
 /** Whether a card is allowed in a format (legal pool, not banned/LL/suspended).
@@ -35,14 +44,25 @@ export function formatAllowed(card: Card, format: string): boolean {
   return f.legal !== false && f.banned !== true && f.ll !== true && f.susp !== true;
 }
 
+// Silver Age allows only common / rare / basic (ex-token) rarity, counting a
+// card if it has *ever* been printed at that rarity. Mirror of `deck.rs`.
+const SA_RARITIES = new Set(["Common", "Rare", "Basic", "Token"]);
+export function silverAgeRarityOk(card: Card): boolean {
+  if (card.printings.length === 0) return SA_RARITIES.has(card.rarity);
+  return card.printings.some((p) => SA_RARITIES.has(p.rarity));
+}
+
 /** Full deck legality for the pool: hero class/talent AND format legality. */
 export function legalForDeck(card: Card, hero: Card | null, format: string): boolean {
-  return legalForHero(card, hero) && formatAllowed(card, format);
+  if (!legalForHero(card, hero) || !formatAllowed(card, format)) return false;
+  if (format === "silver_age" && !silverAgeRarityOk(card)) return false;
+  return true;
 }
 
 /** Whether a hero may lead a deck in the format: Blitz/Silver Age use young
  *  heroes, Classic Constructed uses adult heroes (those without the Young tag),
- *  plus format legality (bans, etc.). */
+ *  plus format legality (bans, etc.). Silver Age heroes must also be a legal
+ *  rarity. */
 export function heroLegalForFormat(hero: Card, format: string): boolean {
   const young = hero.types.includes("Young");
   if (format === "blitz" || format === "silver_age") {
@@ -50,6 +70,7 @@ export function heroLegalForFormat(hero: Card, format: string): boolean {
   } else if (young) {
     return false; // CC = adult heroes
   }
+  if (format === "silver_age" && !silverAgeRarityOk(hero)) return false;
   return formatAllowed(hero, format);
 }
 
