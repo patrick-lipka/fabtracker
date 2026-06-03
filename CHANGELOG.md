@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.1.2
+
+- Recolored the app accent to a purple that matches the app icon.
+- Minor docs/CI maintenance (Node 24 on the build runners).
+
 ## v0.1.1 — first public release
 
 FaB Tracker is a **local-first, offline-capable collection & deck manager for
