@@ -58,13 +58,13 @@ The roadmap below it is the north star; the original vision follows.
   `(red/yellow/blue)` pitch, and collector numbers; resolves names → catalog
   card ids in the frontend; surfaces unmatched lines. Backend `import_deck`
   (migration v6: `decks.is_precon` + `source_url`) inserts in one transaction.
-- **Why no in-app browser / API pull:** researched LSS CardVault (official
-  product list, but no decklists/quantities), the-fab-cube (precon *sets* =
-  distinct cards only, no copy counts), and Fabrary (full lists, but key-gated
-  backend — off limits). An embedded Fabrary webview was prototyped and dropped:
-  WKWebView can't run Fabrary's async `clipboard.write([ClipboardItem])` copy
-  (only sync `writeText` works), making the copy step a dead end. So the user
-  copies in their own browser and pastes here — the principled, reliable path.
+- **Why a paste-based import (no automated pull):** there's no clean, official
+  source of precon decklists *with copy counts* — CardVault lists products but
+  not contents, and the-fab-cube models precons as sets (distinct cards only).
+  Rather than rely on any other tool's backend, we keep it simple and
+  respectful: you export a list from your own browser and paste it here.
+  (An in-app browser was prototyped but dropped — embedded WebKit can't run the
+  async clipboard copy reliably, so the paste flow is the better path anyway.)
 
 ### 2026-06-02 — Deck view (card gallery) as the default; Edit Deck button ✅
 - Opening a deck now shows a read-only **deck view** (`DeckView`): full card
@@ -384,9 +384,10 @@ Rough order; each is its own focused chunk of work.
 
 ## Original vision (from the owner)
 
-> Just started playing Flesh and Blood. What's missing is a great, easy-to-use
-> tool like Moxfield for MTG: manage your collection, build decks, see which
-> cards are missing, import precons directly to the collection, inspect precons,
-> inspect sets, search for cards with nice syntax. Fabrary exists but feels
-> clunky. Goal: a self-hosted or local app that pulls card data from official
-> servers, using modern, natively-fast technology.
+> Just started playing Flesh and Blood. I'd love a Moxfield-style companion:
+> manage your collection, build decks, see which cards are missing, import
+> precons into the collection, inspect precons and sets, search with a nice
+> query syntax. There are good community tools already (Fabrary in particular);
+> this is a personal take aimed at a **native, offline-first, local** experience.
+> Goal: a self-hosted or local app that pulls card data from official servers,
+> using modern, natively-fast technology.

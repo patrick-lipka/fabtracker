@@ -78,8 +78,9 @@ Requires Rust ≥ 1.85 (`rustup update stable`) and Node ≥ 20.
   the frontend; `import_deck` saves it in one tx. An "Import as: Precon / Deck"
   toggle sets `decks.is_precon` (migration v6, with `source_url`); precons render
   in a separate section of `DecksTab`. Source URL is seeded into the deck notes.
-  No in-app Fabrary browser / API pull (WKWebView can't do Fabrary's async
-  clipboard copy; their backend is key-gated) — copy in a browser, paste here.
+  Import is paste-based by design (no automated pull from other tools): export a
+  list from your own browser and paste it here. An embedded browser was tried
+  but dropped — embedded WebKit can't run the async clipboard copy reliably.
 - Backend tests: `cd src-tauri && cargo test --lib` (search parser + end-to-end
   search + DB round-trip; no network). The real network fetch test is
   `#[ignore]`d: `cargo test -- --ignored`.
