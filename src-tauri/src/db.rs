@@ -6,7 +6,9 @@
 //! gives us cheap full reconstruction now and SQL filtering when the richer
 //! search lands, without committing to a rigid relational shape too early.
 
-use rusqlite::{params, Connection, OptionalExtension};
+use std::path::{Path, PathBuf};
+
+use rusqlite::{params, Connection, OptionalExtension, MAIN_DB};
 use rusqlite_migration::{Migrations, M};
 
 use crate::card::Card;
@@ -124,6 +126,47 @@ pub(crate) fn run_migrations(conn: &mut Connection) -> Result<(), String> {
     Migrations::from_slice(MIGRATIONS_SLICE)
         .to_latest(conn)
         .map_err(|e| format!("run migrations: {e}"))
+}
+
+// --- Backup / restore + custom location -----------------------------------
+
+/// Write a clean single-file copy of the live database to `dest` (uses the
+/// online backup API, so it's consistent even with WAL writes in flight).
+pub fn backup_to(conn: &Connection, dest: &Path) -> Result<(), String> {
+    conn.backup(MAIN_DB, dest, None)
+        .map_err(|e| format!("backup db: {e}"))
+}
+
+/// Replace the live database's contents from `src`, then migrate to the latest
+/// schema (in case the imported file is from an older version).
+pub fn restore_from(conn: &mut Connection, src: &Path) -> Result<(), String> {
+    conn.restore(MAIN_DB, src, None::<fn(rusqlite::backup::Progress)>)
+        .map_err(|e| format!("restore db: {e}"))?;
+    run_migrations(conn)
+}
+
+/// A custom database location, if the user has set one (else `None` → default).
+pub fn read_db_pointer(pointer: &Path) -> Option<PathBuf> {
+    std::fs::read_to_string(pointer)
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .map(PathBuf::from)
+}
+
+pub fn write_db_pointer(pointer: &Path, target: &Path) -> Result<(), String> {
+    if let Some(parent) = pointer.parent() {
+        std::fs::create_dir_all(parent).ok();
+    }
+    std::fs::write(pointer, target.to_string_lossy().as_bytes())
+        .map_err(|e| format!("write db pointer: {e}"))
+}
+
+pub fn clear_db_pointer(pointer: &Path) -> Result<(), String> {
+    if pointer.exists() {
+        std::fs::remove_file(pointer).map_err(|e| format!("clear db pointer: {e}"))?;
+    }
+    Ok(())
 }
 
 /// Every card's primary image URL (the one shown in grids/details), for

@@ -1,6 +1,6 @@
 [package]
 name = "fabtracker"
-version = "0.2.0"
+version = "0.3.0"
 description = "Flesh and Blood collection & deck manager"
 authors = ["Patrick Lipka"]
 edition = "2021"
@@ -23,6 +23,8 @@ tauri-plugin-opener = "2"
 # Self-update from GitHub Releases (signed); process plugin provides relaunch.
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
+# Native file pickers for database backup/restore + custom location.
+tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # HTTP client for syncing official card data. rustls avoids a system OpenSSL
@@ -30,7 +32,7 @@ serde_json = "1"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "gzip"] }
 # Local persistence. `bundled` compiles SQLite in, so there's no system
 # dependency. rusqlite_migration runs ordered, idempotent schema migrations.
-rusqlite = { version = "0.40.0", features = ["bundled"] }
+rusqlite = { version = "0.40.0", features = ["bundled", "backup"] }
 rusqlite_migration = "2.6.0"
 
 [dev-dependencies]

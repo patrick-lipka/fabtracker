@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.3.0
+
+- **Custom database location.** ⚙ Settings → Database lets you move the
+  collection/decks database to any folder (e.g. a Drive/iCloud/Seafile folder
+  to sync across devices — use one device at a time and let sync settle).
+- **Back up / Restore.** Save a clean copy of your data, or replace it from a
+  backup — the safe way to move data between machines.
+- Switching location / restoring happens in place (no restart needed).
+
 ## v0.2.0
 
 - **In-app updates.** FaB Tracker now checks GitHub Releases for new versions:

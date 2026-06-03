@@ -236,3 +236,35 @@ export function clearImageCache(): Promise<void> {
 export function prewarmImageCache(): Promise<number> {
   return invoke<number>("prewarm_image_cache");
 }
+
+// --- Database location + backup/restore -------------------------------------
+
+export interface DbLocationInfo {
+  path: string;
+  isCustom: boolean;
+}
+
+/** Current database file path + whether it's a custom (non-default) location. */
+export function dbLocation(): Promise<DbLocationInfo> {
+  return invoke<DbLocationInfo>("db_location");
+}
+
+/** Point the app at `<folder>/fabtracker.db` (copies current data if new). */
+export function setDbLocation(folder: string): Promise<void> {
+  return invoke("set_db_location", { folder });
+}
+
+/** Revert to the default DB location (copies current data back). */
+export function resetDbLocation(): Promise<void> {
+  return invoke("reset_db_location");
+}
+
+/** Write a clean copy of the database to `dest`. */
+export function backupDatabase(dest: string): Promise<void> {
+  return invoke("backup_database", { dest });
+}
+
+/** Replace all current data from the backup file `src`. */
+export function restoreDatabase(src: string): Promise<void> {
+  return invoke("restore_database", { src });
+}

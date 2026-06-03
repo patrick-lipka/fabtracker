@@ -20,6 +20,7 @@ use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 use card::Card;
 use collection::{Binder, CardCollectionEntry, CollectionCard, EntryKey};
@@ -30,6 +31,14 @@ use tauri::{AppHandle, Manager, State};
 
 /// The single shared SQLite connection, guarded by a mutex (queries are short).
 type Db = Mutex<Connection>;
+
+/// Resolved database paths. The active `db` path can change at runtime when the
+/// user switches location (the connection is reopened in place, no restart).
+struct AppPaths {
+    db: Mutex<PathBuf>,
+    default_db: PathBuf,
+    pointer: PathBuf,
+}
 
 const META_REF_MODE: &str = "data_ref_mode";
 const META_SYNCED_SHA: &str = "last_synced_sha";
@@ -427,6 +436,87 @@ async fn prewarm_image_cache(app: AppHandle, db: State<'_, Db>) -> Result<u64, S
     imagecache::prewarm(&app, urls).await
 }
 
+// --- Database location + backup / restore -----------------------------------
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DbLocationInfo {
+    path: String,
+    is_custom: bool,
+}
+
+#[tauri::command]
+fn db_location(paths: State<'_, AppPaths>) -> Result<DbLocationInfo, String> {
+    let path = paths.db.lock().map_err(|e| e.to_string())?.clone();
+    Ok(DbLocationInfo {
+        path: path.display().to_string(),
+        is_custom: path != paths.default_db,
+    })
+}
+
+/// Switch the active database to `target`, reopening the connection in place.
+fn switch_db(db: &Db, paths: &AppPaths, target: PathBuf) -> Result<(), String> {
+    {
+        let mut conn = db.lock().map_err(|e| e.to_string())?;
+        *conn = db::open(&target)?;
+    }
+    *paths.db.lock().map_err(|e| e.to_string())? = target;
+    Ok(())
+}
+
+/// Point the app at `<folder>/fabtracker.db`. If that file doesn't exist yet,
+/// the current data is copied there first; otherwise the existing file is used
+/// (e.g. a DB already synced from another device). Reopens in place — the
+/// caller reloads the UI.
+#[tauri::command]
+fn set_db_location(folder: String, db: State<'_, Db>, paths: State<'_, AppPaths>) -> Result<(), String> {
+    let target = Path::new(&folder).join("fabtracker.db");
+    if *paths.db.lock().map_err(|e| e.to_string())? == target {
+        return Ok(());
+    }
+    if !target.exists() {
+        if let Some(parent) = target.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+        let conn = db.lock().map_err(|e| e.to_string())?;
+        db::backup_to(&conn, &target)?;
+    }
+    db::write_db_pointer(&paths.pointer, &target)?;
+    switch_db(&db, &paths, target)
+}
+
+/// Revert to the default location, copying current data back. Reopens in place.
+#[tauri::command]
+fn reset_db_location(db: State<'_, Db>, paths: State<'_, AppPaths>) -> Result<(), String> {
+    let default_db = paths.default_db.clone();
+    let is_custom = *paths.db.lock().map_err(|e| e.to_string())? != default_db;
+    if is_custom {
+        if let Some(parent) = default_db.parent() {
+            std::fs::create_dir_all(parent).ok();
+        }
+        {
+            let conn = db.lock().map_err(|e| e.to_string())?;
+            db::backup_to(&conn, &default_db)?;
+        }
+        db::clear_db_pointer(&paths.pointer)?;
+        switch_db(&db, &paths, default_db)?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn backup_database(dest: String, db: State<'_, Db>) -> Result<(), String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    db::backup_to(&conn, Path::new(&dest))
+}
+
+/// Replace the live database from `src`, then migrate. Caller relaunches.
+#[tauri::command]
+fn restore_database(src: String, db: State<'_, Db>) -> Result<(), String> {
+    let mut conn = db.lock().map_err(|e| e.to_string())?;
+    db::restore_from(&mut conn, Path::new(&src))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -434,6 +524,8 @@ pub fn run() {
         // Self-update from signed GitHub releases; process plugin enables relaunch.
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        // Native file pickers for DB backup/restore + custom location.
+        .plugin(tauri_plugin_dialog::init())
         // A standard menu provides the Edit accelerators (Copy/Cut/Paste) that
         // text fields (e.g. the precon import box) need on macOS.
         .menu(|handle| tauri::menu::Menu::default(handle))
@@ -446,13 +538,22 @@ pub fn run() {
             });
         })
         .setup(|app| {
-            let dir = app
-                .path()
-                .app_data_dir()
-                .expect("resolve app data dir");
-            std::fs::create_dir_all(&dir).expect("create app data dir");
-            let conn = db::open(&dir.join("fabtracker.db")).expect("open database");
+            let data_dir = app.path().app_data_dir().expect("resolve app data dir");
+            let config_dir = app.path().app_config_dir().expect("resolve app config dir");
+            std::fs::create_dir_all(&data_dir).expect("create app data dir");
+            std::fs::create_dir_all(&config_dir).ok();
+
+            // A pointer file may redirect the DB to a user-chosen location.
+            let pointer = config_dir.join("db_location.txt");
+            let default_db = data_dir.join("fabtracker.db");
+            let db_path = db::read_db_pointer(&pointer).unwrap_or_else(|| default_db.clone());
+            if let Some(parent) = db_path.parent() {
+                std::fs::create_dir_all(parent).ok();
+            }
+
+            let conn = db::open(&db_path).expect("open database");
             app.manage(Mutex::new(conn));
+            app.manage(AppPaths { db: Mutex::new(db_path), default_db, pointer });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -488,6 +589,11 @@ pub fn run() {
             image_cache_info,
             clear_image_cache,
             prewarm_image_cache,
+            db_location,
+            set_db_location,
+            reset_db_location,
+            backup_database,
+            restore_database,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,11 +1,18 @@
 import { useEffect, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { listen } from "@tauri-apps/api/event";
+import { ask, open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import {
+  backupDatabase,
   clearImageCache,
+  dbLocation,
   imageCacheInfo,
   prewarmImageCache,
+  resetDbLocation,
+  restoreDatabase,
+  setDbLocation,
   type CatalogInfo,
+  type DbLocationInfo,
   type ImageCacheInfo,
 } from "../lib/api";
 
@@ -49,11 +56,73 @@ export function DataSourceButton({ info, syncing, onApply, onSync }: DataSourceB
   const [cache, setCache] = useState<ImageCacheInfo | null>(null);
   const [clearing, setClearing] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [db, setDb] = useState<DbLocationInfo | null>(null);
+  const [dbMsg, setDbMsg] = useState<string | null>(null);
 
-  // Load image-cache size whenever the popover opens.
+  // Load image-cache size + DB location whenever the popover opens.
   useEffect(() => {
-    if (open) imageCacheInfo().then(setCache).catch(() => setCache(null));
+    if (!open) return;
+    imageCacheInfo().then(setCache).catch(() => setCache(null));
+    dbLocation().then(setDb).catch(() => setDb(null));
   }, [open]);
+
+  async function changeDbFolder() {
+    const dir = await openDialog({ directory: true, title: "Choose a folder for the database" });
+    if (typeof dir !== "string") return;
+    setDbMsg("Moving database…");
+    try {
+      await setDbLocation(dir);
+      window.location.reload();
+    } catch (e) {
+      setDbMsg(`Failed: ${e}`);
+    }
+  }
+
+  async function resetDb() {
+    if (!(await ask("Move the database back to the default location and restart?", {
+      title: "Reset database location",
+      kind: "warning",
+    }))) return;
+    try {
+      await resetDbLocation();
+      window.location.reload();
+    } catch (e) {
+      setDbMsg(`Failed: ${e}`);
+    }
+  }
+
+  async function backupDb() {
+    const dest = await saveDialog({
+      defaultPath: "fabtracker-backup.db",
+      filters: [{ name: "SQLite database", extensions: ["db"] }],
+    });
+    if (!dest) return;
+    try {
+      await backupDatabase(dest);
+      setDbMsg("Backup saved.");
+    } catch (e) {
+      setDbMsg(`Failed: ${e}`);
+    }
+  }
+
+  async function restoreDb() {
+    const src = await openDialog({
+      multiple: false,
+      filters: [{ name: "SQLite database", extensions: ["db", "sqlite"] }],
+      title: "Choose a backup to restore",
+    });
+    if (typeof src !== "string") return;
+    if (!(await ask("Replace ALL current data with this backup? Your current collection and decks will be overwritten.", {
+      title: "Restore database",
+      kind: "warning",
+    }))) return;
+    try {
+      await restoreDatabase(src);
+      window.location.reload();
+    } catch (e) {
+      setDbMsg(`Failed: ${e}`);
+    }
+  }
 
   function apply() {
     onApply(manual ? refText.trim() || "auto" : "auto");
@@ -105,7 +174,7 @@ export function DataSourceButton({ info, syncing, onApply, onSync }: DataSourceB
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full z-50 mt-2 w-[300px] rounded-xl border border-border bg-surface p-4 shadow-xl shadow-black/50">
+          <div className="absolute right-0 top-full z-50 mt-2 max-h-[80vh] w-[300px] overflow-y-auto rounded-xl border border-border bg-surface p-4 shadow-xl shadow-black/50">
             <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
               Card data source
             </h3>
@@ -204,6 +273,57 @@ export function DataSourceButton({ info, syncing, onApply, onSync }: DataSourceB
                   ? `Downloading ${progress.done}/${progress.total || "…"}…`
                   : "Download all images"}
               </button>
+            </div>
+
+            {/* Database file: location + backup/restore. */}
+            <div className="mt-3 border-t border-border pt-3 text-[11px]">
+              <div className="font-semibold uppercase tracking-wide text-muted">
+                Database (collection &amp; decks)
+              </div>
+              <p
+                className="mt-1 truncate text-[10px] text-gray-300"
+                title={db?.path ?? ""}
+              >
+                {db ? db.path : "…"}
+              </p>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={backupDb}
+                  className="rounded-md border border-border bg-surface-2 py-1 text-gray-200 hover:border-accent"
+                >
+                  Back up…
+                </button>
+                <button
+                  type="button"
+                  onClick={restoreDb}
+                  className="rounded-md border border-border bg-surface-2 py-1 text-gray-200 hover:border-accent"
+                >
+                  Restore…
+                </button>
+                <button
+                  type="button"
+                  onClick={changeDbFolder}
+                  className="rounded-md border border-border bg-surface-2 py-1 text-gray-200 hover:border-accent"
+                >
+                  Change folder…
+                </button>
+                {db?.isCustom && (
+                  <button
+                    type="button"
+                    onClick={resetDb}
+                    className="rounded-md border border-border bg-surface-2 py-1 text-gray-200 hover:border-accent"
+                  >
+                    Reset to default
+                  </button>
+                )}
+              </div>
+              {dbMsg && <p className="mt-1.5 text-[10px] text-muted">{dbMsg}</p>}
+              <p className="mt-1.5 text-[10px] leading-relaxed text-muted">
+                Tip: pointing this at a cloud-synced folder (Drive/iCloud/…) can sync across
+                devices — but only use one device at a time and let sync settle, or use
+                Back up / Restore to move data safely.
+              </p>
             </div>
 
             <p className="mt-3 border-t border-border pt-3 text-[10px] leading-relaxed text-muted">

@@ -1,7 +1,7 @@
 {
   "name": "fabtracker",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Local-first collection & deck manager for the Flesh and Blood TCG.",
   "license": "MIT",
   "author": "Patrick Lipka",
@@ -16,6 +16,7 @@
     "@milkdown/crepe": "^7.21.1",
     "@tanstack/react-virtual": "^3.13.26",
     "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-dialog": "^2",
     "@tauri-apps/plugin-opener": "^2",
     "@tauri-apps/plugin-process": "^2",
     "@tauri-apps/plugin-updater": "^2",
