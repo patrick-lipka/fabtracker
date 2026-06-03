@@ -65,7 +65,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # The key was generated without a password, so this is intentionally
+          # empty (GitHub can't store an empty secret).
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
         with:
           # On a tag push, create/append to a release of that tag (with the
           # signed bundles + latest.json). On manual runs, tagName is empty and
