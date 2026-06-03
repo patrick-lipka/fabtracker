@@ -109,7 +109,8 @@ npm run tauri build    # produce a distributable desktop binary
 
 ## Install (released builds)
 
-Download the build for your OS, then on first launch:
+See **[INSTALL.md](INSTALL.md)** for the full step-by-step guide (including how to
+get past the Edge download block and the first-launch OS warnings). In short:
 
 - **macOS** — the `.dmg` is **unsigned**, so Gatekeeper blocks it on first open.
   Right-click the app → **Open** → **Open** (only needed once).
