@@ -11,7 +11,9 @@
   --color-surface-2: #1c2029;
   --color-border: #2a2f3a;
   --color-muted: #8b93a7;
-  --color-accent: #e0b341;
+  /* Accent: a bright shade of the app-icon plum (#571845, hue ~317°), light
+     enough to carry black button text and pop on the dark surfaces. */
+  --color-accent: #c45fb5;
 
   /* Pitch colors (FaB red/yellow/blue). */
   --color-pitch-1: #d8403a;
