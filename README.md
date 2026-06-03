@@ -15,6 +15,8 @@ export decklists (Fabrary / GEM / text), and import precons.
 > [the-fab-cube/flesh-and-blood-cards](https://github.com/the-fab-cube/flesh-and-blood-cards)
 > dataset and is **not** redistributed with this app.
 
+App icon: [Flash cards icons created by manshagraphics — Flaticon](https://www.flaticon.com/free-icons/flash-cards).
+
 ## What it does today
 
 - Downloads the **full real Flesh and Blood card catalog** (~4285 cards, with

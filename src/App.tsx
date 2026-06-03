@@ -35,6 +35,7 @@ import { ResizablePane } from "./components/ResizablePane";
 import { SearchBar } from "./components/SearchBar";
 import { BinderBar } from "./components/BinderBar";
 import { BinderMenu, type BinderMenuState } from "./components/BinderMenu";
+import { AboutButton } from "./components/AboutButton";
 import { DataSourceButton } from "./components/DataSourceButton";
 import { DecksTab } from "./components/DecksTab";
 import { ViewModeToggle } from "./components/ViewModeToggle";
@@ -301,6 +302,7 @@ export default function App() {
               onApply={applyDataRef}
               onSync={sync}
             />
+            <AboutButton />
           </>
         )}
       </header>
