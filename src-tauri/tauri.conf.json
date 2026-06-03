@@ -21,9 +21,18 @@
       "csp": "default-src 'self'; img-src 'self' data: cardimg: http://cardimg.localhost; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
     }
   },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/patrick-lipka/fabtracker/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDkzQjk2Qzc0RUU5QjI1ODAKUldTQUpadnVkR3k1a3lYd0ZhY012ZDJTWDU3bFlGUVE5Q2dFSTM4SVJuMi9iTDRBNjVia2FIR3IK"
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "category": "Utility",
     "shortDescription": "Flesh and Blood collection & deck manager",
     "longDescription": "A local-first collection and deck manager for the Flesh and Blood TCG: browse the card catalog, organise your collection into binders, build and validate decks, and import/export decklists. Unofficial fan tool; card data © Legend Story Studios.",

@@ -1,14 +1,21 @@
-name: Build release artifacts
+name: Release
 
-# Build installers for macOS / Windows / Linux. Triggered by a version tag
-# (e.g. `git tag v0.1.0 && git push --tags`) or run manually. Bundles are
-# uploaded as workflow artifacts to download and distribute (binaries are
-# unsigned — macOS Gatekeeper / Windows SmartScreen will warn until signed).
+# Build installers for macOS / Windows / Linux. On a version tag, publish a
+# GitHub Release with the signed bundles + the updater manifest (latest.json),
+# which the in-app updater reads from `releases/latest/download/latest.json`.
+# A manual run just builds + uploads workflow artifacts (no release).
+#
+# Requires repo secrets TAURI_SIGNING_PRIVATE_KEY (+ ..._PASSWORD) so the
+# updater artifacts can be signed. (OS code signing / notarization is separate
+# and not done here — first launch still hits Gatekeeper / SmartScreen.)
 
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 # Run all JavaScript actions on Node 24 (Node 20 is being deprecated on the
 # runners). Covers every action below, not just the ones with newer majors.
@@ -57,10 +64,21 @@ jobs:
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
+          # On a tag push, create/append to a release of that tag (with the
+          # signed bundles + latest.json). On manual runs, tagName is empty and
+          # tauri-action just builds — artifacts are captured by the step below.
+          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+          releaseName: "FaB Tracker ${{ github.ref_name }}"
+          releaseBody: "See CHANGELOG.md for details."
+          releaseDraft: false
+          prerelease: false
           args: ${{ matrix.args }}
 
-      - name: Upload bundles
+      - name: Upload bundles (manual runs / debugging)
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: actions/upload-artifact@v4
         with:
           name: fabtracker-${{ matrix.platform }}

@@ -1,20 +1,59 @@
 import { useEffect, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { getVersion } from "@tauri-apps/api/app";
+import { check, type Update } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
 
 // Flaticon's free license requires crediting the icon author.
 const ICON_ATTRIBUTION_URL = "https://www.flaticon.com/free-icons/flash-cards";
 
-/** Header "i" button: app version, disclaimer, and required icon attribution. */
+type UpdateState =
+  | { kind: "idle" }
+  | { kind: "checking" }
+  | { kind: "uptodate" }
+  | { kind: "available"; update: Update }
+  | { kind: "downloading"; pct: number }
+  | { kind: "error" };
+
+/** Header "i" button: app version, update check, disclaimer, icon attribution. */
 export function AboutButton() {
   const [open, setOpen] = useState(false);
   const [version, setVersion] = useState("");
+  const [up, setUp] = useState<UpdateState>({ kind: "idle" });
 
   useEffect(() => {
     getVersion()
       .then(setVersion)
       .catch(() => setVersion(""));
   }, []);
+
+  async function checkUpdates() {
+    setUp({ kind: "checking" });
+    try {
+      const update = await check();
+      setUp(update ? { kind: "available", update } : { kind: "uptodate" });
+    } catch {
+      setUp({ kind: "error" });
+    }
+  }
+
+  async function install(update: Update) {
+    try {
+      let total = 0;
+      let got = 0;
+      setUp({ kind: "downloading", pct: 0 });
+      await update.downloadAndInstall((e) => {
+        if (e.event === "Started") total = e.data.contentLength ?? 0;
+        else if (e.event === "Progress") {
+          got += e.data.chunkLength;
+          setUp({ kind: "downloading", pct: total ? Math.round((got / total) * 100) : 0 });
+        }
+      });
+      await relaunch();
+    } catch {
+      setUp({ kind: "error" });
+    }
+  }
 
   return (
     <div className="relative">
@@ -37,6 +76,40 @@ export function AboutButton() {
             <p className="mt-0.5 text-xs text-muted">
               Version <span className="text-gray-300">{version || "—"}</span>
             </p>
+
+            <div className="mt-2 text-[11px]">
+              {up.kind === "idle" && (
+                <button
+                  type="button"
+                  onClick={checkUpdates}
+                  className="rounded-md border border-border bg-surface-2 px-2 py-1 text-gray-200 hover:border-accent"
+                >
+                  Check for updates
+                </button>
+              )}
+              {up.kind === "checking" && <span className="text-muted">Checking…</span>}
+              {up.kind === "uptodate" && (
+                <span className="text-emerald-400">You're on the latest version.</span>
+              )}
+              {up.kind === "available" && (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-gray-200">v{up.update.version} available</span>
+                  <button
+                    type="button"
+                    onClick={() => install(up.update)}
+                    className="rounded-md bg-accent px-2 py-0.5 font-semibold text-black hover:brightness-110"
+                  >
+                    Install &amp; restart
+                  </button>
+                </div>
+              )}
+              {up.kind === "downloading" && (
+                <span className="text-muted">Downloading… {up.pct}%</span>
+              )}
+              {up.kind === "error" && (
+                <span className="text-amber-300">Couldn't check for updates.</span>
+              )}
+            </div>
 
             <p className="mt-3 text-[11px] leading-relaxed text-muted">
               Unofficial fan tool — not affiliated with Legend Story Studios.

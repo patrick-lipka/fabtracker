@@ -431,6 +431,9 @@ async fn prewarm_image_cache(app: AppHandle, db: State<'_, Db>) -> Result<u64, S
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        // Self-update from signed GitHub releases; process plugin enables relaunch.
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         // A standard menu provides the Edit accelerators (Copy/Cut/Paste) that
         // text fields (e.g. the precon import box) need on macOS.
         .menu(|handle| tauri::menu::Menu::default(handle))
