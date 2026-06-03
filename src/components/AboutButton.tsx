@@ -27,6 +27,16 @@ export function AboutButton() {
       .catch(() => setVersion(""));
   }, []);
 
+  // Quiet check on launch: if an update is waiting, flag it (a dot on the
+  // button) without interrupting. Errors (offline / no release) are ignored.
+  useEffect(() => {
+    check()
+      .then((update) => {
+        if (update) setUp({ kind: "available", update });
+      })
+      .catch(() => {});
+  }, []);
+
   async function checkUpdates() {
     setUp({ kind: "checking" });
     try {
@@ -67,6 +77,12 @@ export function AboutButton() {
       >
         ⓘ
       </button>
+      {up.kind === "available" && (
+        <span
+          title={`Update available: v${up.update.version}`}
+          className="pointer-events-none absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-accent ring-2 ring-canvas"
+        />
+      )}
 
       {open && (
         <>

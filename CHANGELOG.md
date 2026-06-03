@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.2.0
+
+- **In-app updates.** FaB Tracker now checks GitHub Releases for new versions:
+  a quiet check on launch flags an update (a dot on the ⓘ button), and the
+  About popup has **Check for updates** → **Install & restart** with download
+  progress. Updates are cryptographically signed. (This is the first build with
+  the updater, so future versions update in place; grab v0.2.0 manually once.)
+
 ## v0.1.2
 
 - Recolored the app accent to a purple that matches the app icon.
